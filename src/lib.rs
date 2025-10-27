@@ -1,5 +1,4 @@
 pub mod cpu;
-pub mod mem;
 
 pub mod tests {
     pub use crate::cpu::CPU6502;

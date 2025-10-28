@@ -5,6 +5,6 @@ pub mod tests {
     
     #[test]
     pub fn it_works() {
-        let _ = CPU6502::new();
+        let _ = CPU6502::new(true);
     }
 }

@@ -180,7 +180,7 @@ pub struct CPU6502 {
     cpu_mem: [CPUByte; CPU_MEMSIZE],
 
     dbg: bool,
-    debug_msg: String,
+    debug_msg: Vec<String>,
 }
 
 /// Cpu creation/destruction, do not interact with runtime
@@ -197,7 +197,7 @@ impl CPU6502 {
             cycles: 0,
             cpu_mem: [0; CPU_MEMSIZE],
             dbg: false,
-            debug_msg: String::from(""),
+            debug_msg: vec![],
         }
     }
 
@@ -230,12 +230,14 @@ impl CPU6502 {
     /// Reset the cpu and set the program counter to the address stored in the power-on index memory location
     pub fn power_on(&mut self) {
         self.reset();
-        self.set_debug_msg("power_on => reset (0 cycles)".to_string());
-        self.debug();
-        self.set_debug_msg("power_on".to_string());
+        self.push_debug_msg("power_on".to_string());
+        self.debug_imm("reset (0 cycles)".to_string());
+
         self.pc = self.get_next_word();
-        self.set_debug_msg("power_on => ret -> pc".to_string());
-        self.debug();
+
+        self.debug_imm("ret -> pc".to_string());
+
+        self.clear_debug_msg();
     }
 
     /// Reset the cpu to power-on state before starting to run
@@ -243,56 +245,47 @@ impl CPU6502 {
         self.dbg = debugging;
 
         self.power_on();
-        self.set_debug_msg("run".to_string());
 
-        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) {};
+        self.push_debug_msg("run".to_string());
+        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) { };
+        self.restore_debug_msg();
 
-        self.set_debug_msg("cpu halted".to_string());
-        self.debug();
+        self.debug_imm("cpu halted".to_string());
     }
 
     /// Run without resetting cpu to power-on state
     pub fn run_as_is(&mut self, debugging: bool) {
         self.dbg = debugging;
 
-        self.set_debug_msg("run_as_is".to_string());
-        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) {
-            self.set_debug_msg("execute_next_ins".to_string());
-            self.debug() 
-        };
-        self.set_debug_msg("cpu halted".to_string());
-        self.debug();
+        self.push_debug_msg("run_as_is".to_string());
+        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) { };
+        self.restore_debug_msg();
+
+        self.debug_imm("cpu halted".to_string());
     }
 
     /// 1 cycle
     pub fn get_next_byte(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_next_byte".to_string());
-        
+        self.debug_imm("get_next_byte".to_string());
+
         let ret = self.cpu_mem[self.pc as usize];
         self.cycles += 1;
         self.pc += 1;
-        self.debug();
-        
+
         self.debug_ret_byte("get_next_byte", ret);
         
-        self.set_debug_msg(orig_debug_msg);
         ret
     }
 
     /// 2 cycles
     pub fn get_next_word(&mut self) -> CPUWord {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_next_word => low".to_string());
-        self.debug();
-        self.set_debug_msg(orig_debug_msg.clone());
+        self.debug_imm("get_next_word => low".to_string());
         
         let low = self.cpu_mem[self.pc as usize];
         self.cycles += 1;
         self.pc += 1;
 
-        self.append_debug_msg("get_next_word => high".to_string());
-        self.debug();
+        self.debug_imm("get_next_word => high".to_string());
         
         let high = self.cpu_mem[self.pc as usize];
         self.cycles += 1;
@@ -301,42 +294,34 @@ impl CPU6502 {
         let ret = (high as u16) << 8 + low as u16;
         self.debug_ret_word("get_next_word", ret);
         
-        self.set_debug_msg(orig_debug_msg);
         ret
     }
 
     /// 1 cycle
     pub fn get_byte_zp(&mut self, addr: CPUByte) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_byte_zp".to_string());
-        self.debug();
+        self.debug_imm("get_byte_zp".to_string());
         
         let ret = self.cpu_mem[(0x0000 + addr as CPUWord) as usize];
         self.cycles += 1;
         self.debug_ret_byte("get_byte_zp", ret);
         
-        self.set_debug_msg(orig_debug_msg);
         ret
     }
 
     /// 1 cycle
     pub fn get_byte_abs(&mut self, addr: CPUWord) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_byte_abs".to_string());
-        self.debug();
+        self.debug_imm("get_byte_abs".to_string());
         
         self.cycles += 1;
         let  ret = self.cpu_mem[addr as usize];
         self.debug_ret_byte("get_byte_abs", ret);
         
-        self.set_debug_msg(orig_debug_msg);
         ret
     }
 
     /// 2 cycles
     pub fn get_word_zp(&mut self, addr: CPUByte) -> CPUWord {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_word_zp".to_string());
+        self.push_debug_msg("get_word_zp".to_string());
         self.debug();
         
         let low = self.get_byte_zp(addr);
@@ -344,14 +329,13 @@ impl CPU6502 {
         let ret = ((high as u16) << 8) + low as u16;
         self.debug_ret_word("get_word_zp", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 2 cycles
     pub fn get_word_abs(&mut self, addr: CPUWord) -> CPUWord {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_word_abs".to_string());
+        self.push_debug_msg("get_word_abs".to_string());
         self.debug();
 
         let low = self.get_byte_abs(addr);
@@ -359,69 +343,60 @@ impl CPU6502 {
         let ret = ((high as u16) << 8) + low as u16;
         self.debug_ret_word("get_word_abs", ret);
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 1 cycle
     pub fn add_bytes_wrap(&mut self, a: CPUByte, b: CPUByte) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("add_bytes_wrap".to_string());
-        self.debug();
+        self.debug_imm("add_bytes_wrap".to_string());
 
         let ret = a.wrapping_add(b);
         self.cycles += 1;
         self.debug_ret_byte("add_bytes_wrap", ret);
 
-        self.set_debug_msg(orig_debug_msg);
         ret
     }
 
     /// 1 cycle
     pub fn add_words_wrap(&mut self, a: CPUWord, b: CPUWord) -> CPUWord {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("add_words_wrap".to_string());
-        self.debug();
+        self.debug_imm("add_words_wrap".to_string());
 
         let ret = a.wrapping_add(b);
         self.cycles += 1;
         self.debug_ret_word("add_words_wrap", ret);
 
-        self.set_debug_msg(orig_debug_msg);
         ret
     }
 
     /// 1 cycle
     pub fn imm(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_imm".to_string());
+        self.push_debug_msg("get_imm".to_string());
         
         let ret = self.get_next_byte();
         self.debug();
         self.debug_ret_byte("get_imm", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 2 cycles
     pub fn zpg(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_zpg".to_string());
+        self.push_debug_msg("get_zpg".to_string());
         
         let addr = self.get_next_byte();
         let ret = self.get_byte_zp(addr);
         self.debug();
         self.debug_ret_byte("get_zpg", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 3 cycles
     pub fn zpx(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_zpx".to_string());
+        self.push_debug_msg("get_zpx".to_string());
         
         let addr = self.get_next_byte();
         let addr = self.add_bytes_wrap(addr, self.rx);
@@ -429,14 +404,13 @@ impl CPU6502 {
         self.debug();
         self.debug_ret_byte("get_zpx", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 3 cycles
     pub fn zpy(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_zpy".to_string());
+        self.push_debug_msg("get_zpy".to_string());
         
         let addr = self.get_next_byte();
         let addr = self.add_bytes_wrap(addr, self.ry);
@@ -444,28 +418,26 @@ impl CPU6502 {
         self.debug();
         self.debug_ret_byte("get_zpy", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 3 cycles
     pub fn abs(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_abs".to_string());
+        self.push_debug_msg("get_abs".to_string());
         
         let addr = self.get_next_word();
         let ret = self.get_byte_abs(addr);
         self.debug();
         self.debug_ret_byte("get_abs", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 3 ?+ 1 cycles
     pub fn abx(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_abx".to_string());
+        self.push_debug_msg("get_abx".to_string());
         
         let tmp_addr = self.get_next_word();
         let addr = tmp_addr + self.rx as CPUWord;
@@ -478,14 +450,13 @@ impl CPU6502 {
         self.debug();
         self.debug_ret_byte("get_abx", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 3 ?+ 1 cycles
     pub fn aby(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_aby".to_string());
+        self.push_debug_msg("get_aby".to_string());
         
         let tmp_addr = self.get_next_word();
         let addr = tmp_addr + self.ry as CPUWord;
@@ -498,14 +469,13 @@ impl CPU6502 {
         self.debug();
         self.debug_ret_byte("get_aby", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 5 cycles
     pub fn idx(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_inx".to_string());
+        self.push_debug_msg("get_inx".to_string());
         
         let tmp_addr = self.get_next_byte();
         let tmp_addr = self.add_bytes_wrap(tmp_addr, self.rx);
@@ -514,14 +484,13 @@ impl CPU6502 {
         self.debug();
         self.debug_ret_byte("get_inx", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 4 ?+ 1 cycles
     pub fn idy(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("get_iny".to_string());
+        self.push_debug_msg("get_iny".to_string());
         
         let tmp_addr = self.get_next_byte();
         let tmp_addr = self.get_word_zp(tmp_addr);
@@ -535,87 +504,78 @@ impl CPU6502 {
         self.debug();
         self.debug_ret_byte("get_iny", ret);
         
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 2 cycles
-    pub fn push_byte(&mut self, val: CPUByte) {
-        let orig_debug_msg = self.debug_msg.clone();
-        
-        self.append_debug_msg(format!("push_byte => store val ({:#04x})", val));
+    pub fn push_byte(&mut self, val: CPUByte) {       
+        self.push_debug_msg("push_byte".to_string());
+
         self.cpu_mem[(0x0100 + self.sp as u16) as usize] = val;
         self.cycles += 1;
-        self.debug();
-        self.set_debug_msg(orig_debug_msg.clone());
+        self.debug_imm(format!("push val ({:#04x})", val));
 
         // Don't need to check is stack overflows. Will likely crash process, this is correct behaviour.
-        self.append_debug_msg("push_byte => inc sp".to_string());
         self.sp = self.sp.wrapping_add(1);
         self.cycles += 1;
-        self.debug();
+        self.debug_imm("inc sp".to_string());
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
     }
 
     /// 3 cycles
     pub fn pull_byte(&mut self) -> CPUByte {
-        let orig_debug_msg = self.debug_msg.clone();
-
         // Don't need to check if stack underflows. Will likely crash process, this is correct behaviour.
-        self.append_debug_msg("pull_byte => dec sp".to_string());
+        self.push_debug_msg("pull_byte".to_string());
+
         self.sp = self.sp.wrapping_sub(1);
         self.cycles += 1;
-        self.debug();
-        self.set_debug_msg(orig_debug_msg.clone());
+        self.debug_imm("dec sp".to_string());
 
         let ret = self.cpu_mem[(0x0100 + self.sp as u16) as usize];
         self.cycles += 2;
-        self.append_debug_msg(format!("pull_byte => retrieve val ({:#04x})", ret));
-        self.debug();
+        self.debug_imm(format!("retrieve val ({:#04x}", ret));
 
         self.debug_ret_byte("pull_byte", ret);
-
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
     /// 2 cycles
     pub fn push_word(&mut self, val: CPUWord) {
-        let orig_debug_msg = self.debug_msg.clone();
-
         let [high, low] = val.to_be_bytes();
         
-        self.append_debug_msg(format!("push_word => store low ({:#04x})", val));
+        self.push_debug_msg(format!("push_word => store low ({:#04x})", val));
         self.push_byte(low);
         self.cycles -= 1;
         self.debug();
 
-        self.set_debug_msg(orig_debug_msg.clone());
+        self.restore_debug_msg();
 
-        self.append_debug_msg(format!("push_word => store high ({:#04x})", val));
+        self.push_debug_msg(format!("push_word => store high ({:#04x})", val));
         self.push_byte(high);
         self.cycles -= 1;
         self.debug();
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
     }
 
     /// 3 cycles
-    pub fn pull_word(&mut self) -> CPUWord {
-        let orig_debug_msg = self.debug_msg.clone();
+    pub fn pull_word(&mut self) -> CPUWord {        
+        self.push_debug_msg("pull_word".to_string());
         
-        self.append_debug_msg("pull_word => high".to_string());
+        self.push_debug_msg("high".to_string());
         let high = self.pull_byte();
         self.cycles -= 1;
         self.debug();
-        self.set_debug_msg(orig_debug_msg.clone());
+        self.restore_debug_msg();
 
-        self.append_debug_msg("pull_word => low".to_string());
+        self.push_debug_msg("low".to_string());
         let low = self.pull_byte();
         self.cycles -= 1;
         self.debug();
-        self.set_debug_msg(orig_debug_msg.clone());
+        self.restore_debug_msg();
         
         let ret = ((high as CPUWord) << 8) + low as CPUWord;
         self.cycles -= 1;
@@ -623,7 +583,7 @@ impl CPU6502 {
 
         self.debug_ret_word("pull_word", ret);
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
         ret
     }
 
@@ -635,10 +595,7 @@ impl CPU6502 {
             self.unset_zero();
         }
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg(format!("check_zero ({:#04x})", val));
-        self.debug();
-        self.set_debug_msg(orig_debug_msg);
+        self.debug_imm(format!("check_zero ({:#04x})", val))
     }
 
     /// 0 cycles
@@ -649,10 +606,7 @@ impl CPU6502 {
             self.unset_negative();
         }
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg(format!("check_negative ({:#04x} / {:#010b})", val, val));
-        self.debug();
-        self.set_debug_msg(orig_debug_msg);
+        self.debug_imm(format!("check_negative ({:#04x} / {:#010b})", val, val))
     }
 
     /// 0 cycles
@@ -663,10 +617,7 @@ impl CPU6502 {
             self.unset_carry();
         }
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg(format!("carry_if ({})", cond));
-        self.debug();
-        self.set_debug_msg(orig_debug_msg);
+        self.debug_imm(format!("carry_if ({})", cond));
     }
 
     /// 0 cycles
@@ -681,18 +632,14 @@ impl CPU6502 {
             self.unset_overflow();
         }
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", init_val, add_val, final_val));
-        self.debug();
-        self.set_debug_msg(orig_debug_msg);
+        self.debug_imm(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", init_val, add_val, final_val))
     }
 
     /// 1 - 5 cycles
     pub fn adc(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("adc".to_string());
+        self.push_debug_msg("ADC".to_string());
 
         let init_val = self.ac;
         let add_val = if self.is_carry() {1} else {0} + match mode {
@@ -714,15 +661,14 @@ impl CPU6502 {
         self.check_negative(self.ac);
         self.check_zero(self.ac);
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
     }
 
     /// 1 - 5 cycles
     pub fn and(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("and".to_string());
+        self.push_debug_msg("AND".to_string());
 
         self.ac &= match mode {
             IMM => self.imm(),
@@ -739,15 +685,14 @@ impl CPU6502 {
         self.check_zero(self.ac);
         self.check_negative(self.ac);
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
     }
 
     /// 1 - 6 cycles
     pub fn asl(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("asl".to_string());
+        self.push_debug_msg("ASL".to_string());
 
         let addr = match mode {
             ACC => None,
@@ -776,13 +721,14 @@ impl CPU6502 {
             _ => { self.cpu_mem[addr.unwrap() as usize] = val },
         };
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
     }
 
     /// 2 - 3 cycles
-    // ! todo: add debug information
     pub fn bit(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
+
+        self.push_debug_msg("BIT".to_string());
 
         let val = match mode {
             ZPG => self.zpg(),
@@ -800,14 +746,15 @@ impl CPU6502 {
         } else {
             self.unset_overflow();
         }
+
+        self.restore_debug_msg();
     }
 
     /// 1 - 5 cycles
     pub fn lda(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("lda".to_string());
+        self.push_debug_msg("LDA".to_string());
 
         self.ac = match mode {
             IMM => self.imm(),
@@ -821,27 +768,26 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for LDA"),
         };
 
-        self.append_debug_msg("ret -> ac".to_string());
-        self.debug();
-        self.set_debug_msg(orig_debug_msg.clone());
-        self.append_debug_msg("ret".to_string());
+        self.debug_imm("ret -> ac".to_string());
 
         self.check_zero(self.ac);
         self.check_negative(self.ac);
 
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
     }
 }
 
 /// Dedicated block for decoding and executing cpu instructions
 impl CPU6502 {
-    pub fn decode_next_byte(&mut self) -> CPUInstruction {
+    /// 1 cycle
+    pub fn decode_next_ins(&mut self) -> CPUInstruction {
         use CPUInstruction::*;
         use CPUAddrMode::*;
 
+        self.push_debug_msg("decode_next_ins".to_string());
         let opcode = self.get_next_byte();
 
-        match opcode {
+        let ret = match opcode {
             0x00 => BRK(IMP),
             0x01 => ORA(IDX),
             0x05 => ORA(ZPG),
@@ -997,18 +943,23 @@ impl CPU6502 {
             // Non-spec/illegal instruction codes
             0xFF => HLT(IMP),
             _ => panic!("Invalid opcode: {:#04x}", opcode),
-        }
+        };
+
+        self.debug();
+        self.debug_ret_ins(ret);
+
+        self.restore_debug_msg();
+        ret
     }
 
-    /// 1 + (op cycles) cycles
+    /// Takes as many cycles as the instruction being executed
     pub fn execute_next_ins(&mut self) -> CPUInstruction {
         use CPUInstruction::*;
         use CPUAddrMode::*;
 
-        let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg("execute_next_command".to_string());
+        self.push_debug_msg("execute_next_command".to_string());
 
-        let ins = self.decode_next_byte();
+        let ins = self.decode_next_ins();
 
         match ins {
             ADC(mode) => self.adc(mode),
@@ -1094,32 +1045,33 @@ impl CPU6502 {
                 }
             },
             BRK(IMP) => {
-                let orig_debug_msg = self.debug_msg.clone();
+                self.push_debug_msg("BRK".to_string());
 
-                self.append_debug_msg("brk => push_pc".to_string());
+                self.push_debug_msg("push_pc".to_string());
                 self.push_word(self.pc);
-                self.set_debug_msg(orig_debug_msg.clone());
+                self.restore_debug_msg();
 
-                self.append_debug_msg("brk => push_ps".to_string());
+                self.push_debug_msg("push_ps".to_string());
                 self.push_byte(self.ps);
-                self.set_debug_msg(orig_debug_msg.clone());
+                self.restore_debug_msg();
                 
                 self.set_break_command();
 
-                self.append_debug_msg("brk => jmp_to_loc_at_irq_vector (0xFFFE)".to_string());
+                self.push_debug_msg("jmp_to_loc_at_irq_vector".to_string());
                 self.pc = self.get_word_abs(0xFFFE);
-                self.debug();
+                self.restore_debug_msg();
 
-                self.set_debug_msg(orig_debug_msg);
+                self.debug();
+                self.restore_debug_msg();
             },
             // !
             // ! todo: Continue instruction implementation
             // !
-            HLT(IMP) => { self.cycles += 1; },
+            HLT(IMP) => { self.cycles += 1; self.debug_imm("HLT".to_string())},
             LDA(mode) => self.lda(mode),
             _ => panic!("Unimplemented instruction: {:?}", ins),
         }
-        self.set_debug_msg(orig_debug_msg);
+        self.restore_debug_msg();
 
         ins
     }
@@ -1240,6 +1192,9 @@ impl CPU6502 {
 
 /// Cpu debugging utility functions (cycle count unaffected)
 impl CPU6502 {
+    /// Allows user to switch on or off cpu debugging messages.
+    /// 
+    /// *(Beware of unintended side effects if modifying value while cpu is running.)*
     pub fn set_dbg_mode(&mut self, dbg: bool) {
         self.dbg = dbg;
     }
@@ -1247,42 +1202,70 @@ impl CPU6502 {
     /// Print current state of cpu with a header message detailing the cpu execution stack
     pub fn debug(&self) {
         if self.dbg {
-            println!("*** {} ***\n{}\n", self.debug_msg, self);
+            print!("*** ");
+            for m in self.debug_msg.iter().take(self.debug_msg.len() - 1) {
+                print!("{} => ", m);
+            }
+            print!("{}", self.debug_msg.last().unwrap());
+            println!(" ***\n{}\n", self);
         }
     }
     
     /// Print the name and return value of a cpu function returning a CPUByte
     pub fn debug_ret_byte(&self, fname: &'static str, ret_val: CPUByte) {
         if self.dbg {
-            println!("-> {}: {:#04x}\n", fname, ret_val);
+            println!("-> {}: {:#04X}\n", fname, ret_val);
         }
     }
 
     /// Print the name and return value of a cpu function returning a CPUWord
     pub fn debug_ret_word(&self, fname: &'static str, ret_val: CPUWord) {
         if self.dbg {
-            println!("-> {}: {:#06x}\n", fname, ret_val);
+            println!("-> {}: {:#06X}\n", fname, ret_val);
         }
     }
 
-    /// Set the `debug()` header message to `msg`
-    pub fn set_debug_msg(&mut self, msg: String) {
+    /// Print the instruction returned by decode_next_ins
+    pub fn debug_ret_ins(&self, ret_ins: CPUInstruction) {
         if self.dbg {
-            self.debug_msg = msg;
+            println!("-> decode_next_ins: {:?}\n", ret_ins);
         }
     }
 
-    /// Append `" => {msg}"` to `debug()` header message
-    pub fn append_debug_msg(&mut self, msg: String) {
+    /// Reset the debug_msg vector to empty
+    pub fn clear_debug_msg(&mut self) {
         if self.dbg {
-            self.debug_msg += &(String::from(" => ") + &msg);
+            self.debug_msg = vec![];
+        }
+    }
+
+    /// Push `msg` onto `self.debug_msg`
+    pub fn push_debug_msg(&mut self, msg: String) {
+        if self.dbg {
+            self.debug_msg.push(msg);
+        }
+    }
+
+    /// Pop and discard most recently added `msg` from `self.debug_msg`
+    pub fn restore_debug_msg(&mut self) {
+        if self.dbg {
+            let _ = self.debug_msg.pop();
+        }
+    }
+
+    /// Allow for quick, one-time debug prints with a custom message suffix
+    pub fn debug_imm(&mut self, msg: String) {
+        if self.dbg {
+            self.push_debug_msg(msg);
+            self.debug();
+            self.restore_debug_msg();
         }
     }
 }
 
 impl std::fmt::Display for CPU6502 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "cycle count: {}\npc: {:#06x}\nnext byte: {:#04x}\nnext word: {:#06x}\nps (NV0BDIZC): {:08b}\nsp: {:#04x}\nac: {:#04x}\nrx: {:#04x}\nry: {:#04x}",
+        write!(f, "cycles: {}\npc: {:#06X}\nnext byte: {:#04X}\nnext word: {:#06X}\nps (NVuBDIZC): {:08b}\nsp: {:#04X}\nac: {:#04X}\nrx: {:#04X}\nry: {:#04X}",
             self.cycles,
             self.pc,
             self.cpu_mem[self.pc as usize],
@@ -1300,7 +1283,7 @@ impl std::fmt::Debug for CPU6502 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}\n", self)?;
         for byte in self.cpu_mem {
-            write!(f, "{:02x}, ", byte)?;
+            write!(f, "{:02X}, ", byte)?;
         }
 
         std::fmt::Result::Ok(())

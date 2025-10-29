@@ -248,51 +248,10 @@ pub enum AddrMode {
     IND,
 
     /// 5 cycles
-    INX,
+    IDX,
 
     /// 4 ?+ 1 cycles
-    INY,
-}
-
-pub type CPUByte = u8;
-pub type CPUWord = u16;
-
-pub const CPU_MEMSIZE: usize = 65536;
-
-/// Return new zeroed cpu memory.
-pub fn mem_zeros() -> [CPUByte; CPU_MEMSIZE] {
-    [0; CPU_MEMSIZE]
-}
-
-/// Return new zeroed cpu memory with `code` inserted in range `mem[idx]` - `mem[idx + code.len()`.
-pub fn mem_with_code_at(code: &[CPUByte], idx: usize) -> Result<[CPUByte; CPU_MEMSIZE], &'static str> {
-    let mut ret = mem_zeros();
-    if idx <= CPU_MEMSIZE && code.len() + idx <= CPU_MEMSIZE {
-        for (offset, &byte) in code.iter().enumerate() {
-            ret[idx + offset] = byte;
-        }
-        Ok(ret)
-    } else if idx > CPU_MEMSIZE {
-        Err("Error: code insertion point out of memory bounds")
-    } else {
-        Err("Error: code overflows memory bounds. Consider inserting at an earlier index")
-    }
-}
-
-/// Modify existing cpu memory `mem` by inserting `code` in range `mem[idx]` - `mem[idx + code.len()]`.
-///
-/// Will overwrite memory in modification range.
-pub fn mem_insert_code_at(mem: &mut [CPUByte; CPU_MEMSIZE], code: &[CPUByte], idx: usize) -> Result<(), &'static str> {
-    if idx <= CPU_MEMSIZE && code.len() + idx <= CPU_MEMSIZE {
-        for (offset, &byte) in code.iter().enumerate() {
-            mem[idx + offset] = byte;
-        }
-        Ok(())
-    } else if idx > CPU_MEMSIZE {
-        Err("Error: code insertion point out of memory bounds")
-    } else {
-        Err("Error: code overflows memory bounds. Consider inserting at an earlier index")
-    }
+    IDY,
 }
 
 pub struct CPU6502 {
@@ -691,7 +650,7 @@ impl CPU6502 {
     }
 
     /// 5 cycles
-    pub fn inx(&mut self) -> CPUByte {
+    pub fn idx(&mut self) -> CPUByte {
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("get_inx".to_string());
         
@@ -707,7 +666,7 @@ impl CPU6502 {
     }
 
     /// 4 ?+ 1 cycles
-    pub fn iny(&mut self) -> CPUByte {
+    pub fn idy(&mut self) -> CPUByte {
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("get_iny".to_string());
         
@@ -890,8 +849,8 @@ impl CPU6502 {
             ABS => self.abs(),
             ABX => self.abx(),
             ABY => self.aby(),
-            INX => self.inx(),
-            INY => self.iny(),
+            IDX => self.idx(),
+            IDY => self.idy(),
             _ => panic!("Invalid address mode for ADC"),
         };
         
@@ -919,8 +878,8 @@ impl CPU6502 {
             ABS => self.abs(),
             ABX => self.abx(),
             ABY => self.aby(),
-            INX => self.inx(),
-            INY => self.iny(),
+            IDX => self.idx(),
+            IDY => self.idy(),
             _ => panic!("Invalid address mode for AND"),
         };
 
@@ -1004,8 +963,8 @@ impl CPU6502 {
             ABS => self.abs(),
             ABX => self.abx(),
             ABY => self.aby(),
-            INX => self.inx(),
-            INY => self.iny(),
+            IDX => self.idx(),
+            IDY => self.idy(),
             _ => panic!("Invalid address mode for LDA"),
         };
 

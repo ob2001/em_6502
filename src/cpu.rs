@@ -1,219 +1,72 @@
-/// ~153 instructions
-pub mod cpu_ins {
-    use super::CPUByte;
+use crate::prelude::*;
 
-    pub const LDA_IMM: CPUByte = 0xA9;
-    pub const LDA_ZPG: CPUByte = 0xA5;
-    pub const LDA_ZPX: CPUByte = 0xB5;
-    pub const LDA_ABS: CPUByte = 0xAD;
-    pub const LDA_ABX: CPUByte = 0xBD;
-    pub const LDA_ABY: CPUByte = 0xB9;
-    pub const LDA_INX: CPUByte = 0xA1;
-    pub const LDA_INY: CPUByte = 0xB1;
+/// 56 spec instructions, +1 added instruction for debugging
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum CPUInstruction {
+    ADC(CPUAddrMode),
+    AND(CPUAddrMode),
+    ASL(CPUAddrMode),
+    BCC(CPUAddrMode),
+    BCS(CPUAddrMode),
+    BEQ(CPUAddrMode),
+    BIT(CPUAddrMode),
+    BMI(CPUAddrMode),
+    BNE(CPUAddrMode),
+    BPL(CPUAddrMode),
+    BRK(CPUAddrMode),
+    BVC(CPUAddrMode),
+    BVS(CPUAddrMode),
+    CLC(CPUAddrMode),
+    CLD(CPUAddrMode),
+    CLI(CPUAddrMode),
+    CLV(CPUAddrMode),
+    CMP(CPUAddrMode),
+    CPX(CPUAddrMode),
+    CPY(CPUAddrMode),
+    DEC(CPUAddrMode),
+    DEX(CPUAddrMode),
+    DEY(CPUAddrMode),
+    EOR(CPUAddrMode),
 
-    pub const LDX_IMM: CPUByte = 0xA2;
-    pub const LDX_ZPG: CPUByte = 0xA6;
-    pub const LDX_ZPY: CPUByte = 0xB6;
-    pub const LDX_ABS: CPUByte = 0xAE;
-    pub const LDX_ABY: CPUByte = 0xBE;
+    /// Not part of cpu spec. Added to halt execution for testing
+    HLT(CPUAddrMode),
 
-    pub const LDY_IMM: CPUByte = 0xA0;
-    pub const LDY_ZPG: CPUByte = 0xA4;
-    pub const LDY_ZPX: CPUByte = 0xB4;
-    pub const LDY_ABS: CPUByte = 0xAC;
-    pub const LDY_ABX: CPUByte = 0xBC;
-
-    pub const STA_ZPG: CPUByte = 0x85;
-    pub const STA_ZPX: CPUByte = 0x95;
-    pub const STA_ABS: CPUByte = 0x8D;
-    pub const STA_ABX: CPUByte = 0x9D;
-    pub const STA_ABY: CPUByte = 0x99;
-    pub const STA_INX: CPUByte = 0x81;
-    pub const STA_INY: CPUByte = 0x91;
-
-    pub const STX_ZPG: CPUByte = 0x86;
-    pub const STX_ZPY: CPUByte = 0x96;
-    pub const STX_ABS: CPUByte = 0x8E;
-
-    pub const STY_ZPG: CPUByte = 0x85;
-    pub const STY_ZPX: CPUByte = 0x95;
-    pub const STY_ABS: CPUByte = 0x8C;
-
-    pub const TAX_IMP: CPUByte = 0xAA;
-
-    pub const TAY_IMP: CPUByte = 0xA8;
-
-    pub const TXA_IMP: CPUByte = 0x8A;
-
-    pub const TYA_IMP: CPUByte = 0x98;
-
-    pub const TSX_IMP: CPUByte = 0xBA;
-
-    pub const TXS_IMP: CPUByte = 0x9A;
-
-    pub const PHA_IMP: CPUByte = 0x48;
-
-    pub const PHP_IMP: CPUByte = 0x08;
-
-    pub const PLA_IMP: CPUByte = 0x68;
-
-    pub const PLP_IMP: CPUByte = 0x28;
-
-    pub const AND_IMM: CPUByte = 0x29;
-    pub const AND_ZPG: CPUByte = 0x25;
-    pub const AND_ZPX: CPUByte = 0x35;
-    pub const AND_ABS: CPUByte = 0x2D;
-    pub const AND_ABX: CPUByte = 0x3D;
-    pub const AND_ABY: CPUByte = 0x39;
-    pub const AND_INX: CPUByte = 0x21;
-    pub const AND_INY: CPUByte = 0x31;
-
-    pub const EOR_IMM: CPUByte = 0x49;
-    pub const EOR_ZPG: CPUByte = 0x45;
-    pub const EOR_ZPX: CPUByte = 0x55;
-    pub const EOR_ABS: CPUByte = 0x4D;
-    pub const EOR_ABX: CPUByte = 0x5D;
-    pub const EOR_ABY: CPUByte = 0x59;
-    pub const EOR_INX: CPUByte = 0x41;
-    pub const EOR_INY: CPUByte = 0x51;
-
-    pub const ORA_IMM: CPUByte = 0x09;
-    pub const ORA_ZPG: CPUByte = 0x05;
-    pub const ORA_ZPX: CPUByte = 0x15;
-    pub const ORA_ABS: CPUByte = 0x0D;
-    pub const ORA_ABX: CPUByte = 0x1D;
-    pub const ORA_ABY: CPUByte = 0x19;
-    pub const ORA_INX: CPUByte = 0x01;
-    pub const ORA_INY: CPUByte = 0x11;
-
-    pub const BIT_ZPG: CPUByte = 0x24;
-    pub const BIT_ABS: CPUByte = 0x2C;
-
-    pub const ADC_IMM: CPUByte = 0x69;
-    pub const ADC_ZPG: CPUByte = 0x65;
-    pub const ADC_ZPX: CPUByte = 0x75;
-    pub const ADC_ABS: CPUByte = 0x6D;
-    pub const ADC_ABX: CPUByte = 0x7D;
-    pub const ADC_ABY: CPUByte = 0x79;
-    pub const ADC_INX: CPUByte = 0x61;
-    pub const ADC_INY: CPUByte = 0x71;
-
-    pub const SBC_IMM: CPUByte = 0xE9;
-    pub const SBC_ZPG: CPUByte = 0xE5;
-    pub const SBC_ZPX: CPUByte = 0xF5;
-    pub const SBC_ABS: CPUByte = 0xED;
-    pub const SBC_ABX: CPUByte = 0xFD;
-    pub const SBC_ABY: CPUByte = 0xF9;
-    pub const SBC_INX: CPUByte = 0xE1;
-    pub const SBC_INY: CPUByte = 0xF1;
-
-    pub const CMP_IMM: CPUByte = 0xC9;
-    pub const CMP_ZPG: CPUByte = 0xC5;
-    pub const CMP_ZPX: CPUByte = 0xD5;
-    pub const CMP_ABS: CPUByte = 0xCD;
-    pub const CMP_ABX: CPUByte = 0xDD;
-    pub const CMP_ABY: CPUByte = 0xD9;
-    pub const CMP_INX: CPUByte = 0xC1;
-    pub const CMP_INY: CPUByte = 0xD1;
-
-    pub const CPX_IMM: CPUByte = 0xE0;
-    pub const CPX_ZPG: CPUByte = 0xE4;
-    pub const CPX_ABS: CPUByte = 0xEC;
-
-    pub const CPY_IMM: CPUByte = 0xC0;
-    pub const CPY_ZPG: CPUByte = 0xC4;
-    pub const CPY_ABS: CPUByte = 0xCC;
-
-    pub const INC_ZPG: CPUByte = 0xE6;
-    pub const INC_ZPX: CPUByte = 0xF6;
-    pub const INC_ABS: CPUByte = 0xEE;
-    pub const INC_ABX: CPUByte = 0xFE;
-
-    pub const INX_IMP: CPUByte = 0xE8;
-
-    pub const INY_IMP: CPUByte = 0xC8;
-
-    pub const DEC_ZPG: CPUByte = 0xC6;
-    pub const DEC_ZPX: CPUByte = 0xD6;
-    pub const DEC_ABS: CPUByte = 0xCE;
-    pub const DEC_ABX: CPUByte = 0xDE;
-
-    pub const DEX_IMP: CPUByte = 0xCA;
-
-    pub const DEY_IMP: CPUByte = 0x88;
-
-    pub const ASL_ACC: CPUByte = 0x0A;
-    pub const ASL_ZPG: CPUByte = 0x06;
-    pub const ASL_ZPX: CPUByte = 0x16;
-    pub const ASL_ABS: CPUByte = 0x0E;
-    pub const ASL_ABX: CPUByte = 0x1E;
-
-    pub const LSR_ACC: CPUByte = 0x4A;
-    pub const LSR_ZPG: CPUByte = 0x46;
-    pub const LSR_ZPX: CPUByte = 0x56;
-    pub const LSR_ABS: CPUByte = 0x4E;
-    pub const LSR_ABX: CPUByte = 0x5E;
-
-    pub const ROL_ACC: CPUByte = 0x2A;
-    pub const ROL_ZPG: CPUByte = 0x26;
-    pub const ROL_ZPX: CPUByte = 0x36;
-    pub const ROL_ABS: CPUByte = 0x2E;
-    pub const ROL_ABX: CPUByte = 0x3E;
-
-    pub const ROR_ACC: CPUByte = 0x6A;
-    pub const ROR_ZPG: CPUByte = 0x66;
-    pub const ROR_ZPX: CPUByte = 0x76;
-    pub const ROR_ABS: CPUByte = 0x6E;
-    pub const ROR_ABX: CPUByte = 0x7E;
-
-    pub const JMP_ABS: CPUByte = 0x4C;
-    pub const JMP_IND: CPUByte = 0x6C;
-
-    pub const JSR_ABS: CPUByte = 0x20;
-
-    pub const RTS_IMP: CPUByte = 0x60;
-
-    pub const BCC_REL: CPUByte = 0x90;
-
-    pub const BCS_REL: CPUByte = 0xB0;
-
-    pub const BEQ_REL: CPUByte = 0xF0;
-
-    pub const BMI_REL: CPUByte = 0x30;
-
-    pub const BNE_REL: CPUByte = 0xD0;
-
-    pub const BPL_REL: CPUByte = 0x10;
-
-    pub const BVC_REL: CPUByte = 0x50;
-
-    pub const BVS_REL: CPUByte = 0x70;
-
-    pub const CLC_IMP: CPUByte = 0x18;
-
-    pub const CLD_IMP: CPUByte = 0xD8;
-
-    pub const CLI_IMP: CPUByte = 0x58;
-
-    pub const CLV_IMP: CPUByte = 0xB8;
-
-    pub const SEC_IMP: CPUByte = 0x38;
-
-    pub const SED_IMP: CPUByte = 0xF8;
-
-    pub const SEI_IMP: CPUByte = 0x78;
-
-    pub const BRK_IMP: CPUByte = 0x00;
-
-    pub const NOP_IMP: CPUByte = 0xEA;
-
-    pub const RTI_IMP: CPUByte = 0x40;
-
-    /// Not part of official spec. Added to allow emulation termination while testing.
-    pub const HLT_IMP: CPUByte = 0xFF;
+    INC(CPUAddrMode),
+    INX(CPUAddrMode),
+    INY(CPUAddrMode),
+    JMP(CPUAddrMode),
+    JSR(CPUAddrMode),
+    LDA(CPUAddrMode),
+    LDX(CPUAddrMode),
+    LDY(CPUAddrMode),
+    LSR(CPUAddrMode),
+    NOP(CPUAddrMode),
+    ORA(CPUAddrMode),
+    PHA(CPUAddrMode),
+    PHP(CPUAddrMode),
+    PLA(CPUAddrMode),
+    PLP(CPUAddrMode),
+    ROL(CPUAddrMode),
+    ROR(CPUAddrMode),
+    RTI(CPUAddrMode),
+    RTS(CPUAddrMode),
+    SBC(CPUAddrMode),
+    SEC(CPUAddrMode),
+    SED(CPUAddrMode),
+    SEI(CPUAddrMode),
+    STA(CPUAddrMode),
+    STX(CPUAddrMode),
+    STY(CPUAddrMode),
+    TAX(CPUAddrMode),
+    TAY(CPUAddrMode),
+    TSX(CPUAddrMode),
+    TXA(CPUAddrMode),
+    TXS(CPUAddrMode),
+    TYA(CPUAddrMode),
 }
 
-pub enum AddrMode {
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum CPUAddrMode {
     /// (1 or 0?) cycles
     IMP,
 
@@ -316,7 +169,7 @@ pub struct CPU6502 {
     ps: CPUByte,
 
     /// Counter incremented to emulate cpu clock cycles
-    cycle_count: usize,
+    cycles: usize,
 
     /// Contains all memory the cpu can access, ordered as cpu expects:
     /// - Page 0 (0x0000 - 0x00FF): Zero page memory
@@ -330,7 +183,7 @@ pub struct CPU6502 {
     debug_msg: String,
 }
 
-/// Creation/destruction functions, do not interact with runtime
+/// Cpu creation/destruction, do not interact with runtime
 impl CPU6502 {
     /// Create a new CPU6502 with registers set to defaults and zeroed memory
     pub fn new() -> Self {
@@ -341,7 +194,7 @@ impl CPU6502 {
             rx: 0,
             ry: 0,
             ps: 0,
-            cycle_count: 0,
+            cycles: 0,
             cpu_mem: [0; CPU_MEMSIZE],
             dbg: false,
             debug_msg: String::from(""),
@@ -368,7 +221,7 @@ impl CPU6502 {
         self.rx = 0;
         self.ry = 0;
         self.ps = 0;
-        self.cycle_count = 0;
+        self.cycles = 0;
     }
 }
 
@@ -386,24 +239,24 @@ impl CPU6502 {
     }
 
     /// Reset the cpu to power-on state before starting to run
-    pub fn power_on_and_run(&mut self, dbg: bool) {
-        self.dbg = dbg;
+    pub fn power_on_and_run(&mut self, debugging: bool) {
+        self.dbg = debugging;
 
         self.power_on();
         self.set_debug_msg("run".to_string());
 
-        while self.execute_next_ins() != cpu_ins::HLT_IMP {};
+        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) {};
 
         self.set_debug_msg("cpu halted".to_string());
         self.debug();
     }
 
     /// Run without resetting cpu to power-on state
-    pub fn run_as_is(&mut self, dbg: bool) {
-        self.dbg = dbg;
+    pub fn run_as_is(&mut self, debugging: bool) {
+        self.dbg = debugging;
 
         self.set_debug_msg("run_as_is".to_string());
-        while self.execute_next_ins() != cpu_ins::HLT_IMP {
+        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) {
             self.set_debug_msg("execute_next_ins".to_string());
             self.debug() 
         };
@@ -417,7 +270,7 @@ impl CPU6502 {
         self.append_debug_msg("get_next_byte".to_string());
         
         let ret = self.cpu_mem[self.pc as usize];
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.pc += 1;
         self.debug();
         
@@ -435,14 +288,14 @@ impl CPU6502 {
         self.set_debug_msg(orig_debug_msg.clone());
         
         let low = self.cpu_mem[self.pc as usize];
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.pc += 1;
 
         self.append_debug_msg("get_next_word => high".to_string());
         self.debug();
         
         let high = self.cpu_mem[self.pc as usize];
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.pc += 1;
         
         let ret = (high as u16) << 8 + low as u16;
@@ -459,7 +312,7 @@ impl CPU6502 {
         self.debug();
         
         let ret = self.cpu_mem[(0x0000 + addr as CPUWord) as usize];
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.debug_ret_byte("get_byte_zp", ret);
         
         self.set_debug_msg(orig_debug_msg);
@@ -472,7 +325,7 @@ impl CPU6502 {
         self.append_debug_msg("get_byte_abs".to_string());
         self.debug();
         
-        self.cycle_count += 1;
+        self.cycles += 1;
         let  ret = self.cpu_mem[addr as usize];
         self.debug_ret_byte("get_byte_abs", ret);
         
@@ -517,7 +370,7 @@ impl CPU6502 {
         self.debug();
 
         let ret = a.wrapping_add(b);
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.debug_ret_byte("add_bytes_wrap", ret);
 
         self.set_debug_msg(orig_debug_msg);
@@ -531,7 +384,7 @@ impl CPU6502 {
         self.debug();
 
         let ret = a.wrapping_add(b);
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.debug_ret_word("add_words_wrap", ret);
 
         self.set_debug_msg(orig_debug_msg);
@@ -618,7 +471,7 @@ impl CPU6502 {
         let addr = tmp_addr + self.rx as CPUWord;
         
         if addr / 256 > tmp_addr / 256 {
-            self.cycle_count += 1;
+            self.cycles += 1;
         }
         
         let ret = self.get_byte_abs(addr);
@@ -638,7 +491,7 @@ impl CPU6502 {
         let addr = tmp_addr + self.ry as CPUWord;
         
         if addr / 256 > tmp_addr / 256 {
-            self.cycle_count += 1;
+            self.cycles += 1;
         }
         
         let ret = self.get_byte_abs(addr);
@@ -675,7 +528,7 @@ impl CPU6502 {
         let addr = tmp_addr + self.ry as CPUWord;
         
         if addr / 256 > tmp_addr / 256 {
-            self.cycle_count += 1;
+            self.cycles += 1;
         }
         
         let ret = self.get_byte_abs(addr);
@@ -692,14 +545,14 @@ impl CPU6502 {
         
         self.append_debug_msg(format!("push_byte => store val ({:#04x})", val));
         self.cpu_mem[(0x0100 + self.sp as u16) as usize] = val;
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.debug();
         self.set_debug_msg(orig_debug_msg.clone());
 
         // Don't need to check is stack overflows. Will likely crash process, this is correct behaviour.
         self.append_debug_msg("push_byte => inc sp".to_string());
         self.sp = self.sp.wrapping_add(1);
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.debug();
 
         self.set_debug_msg(orig_debug_msg);
@@ -712,12 +565,12 @@ impl CPU6502 {
         // Don't need to check if stack underflows. Will likely crash process, this is correct behaviour.
         self.append_debug_msg("pull_byte => dec sp".to_string());
         self.sp = self.sp.wrapping_sub(1);
-        self.cycle_count += 1;
+        self.cycles += 1;
         self.debug();
         self.set_debug_msg(orig_debug_msg.clone());
 
         let ret = self.cpu_mem[(0x0100 + self.sp as u16) as usize];
-        self.cycle_count += 2;
+        self.cycles += 2;
         self.append_debug_msg(format!("pull_byte => retrieve val ({:#04x})", ret));
         self.debug();
 
@@ -735,14 +588,14 @@ impl CPU6502 {
         
         self.append_debug_msg(format!("push_word => store low ({:#04x})", val));
         self.push_byte(low);
-        self.cycle_count -= 1;
+        self.cycles -= 1;
         self.debug();
 
         self.set_debug_msg(orig_debug_msg.clone());
 
         self.append_debug_msg(format!("push_word => store high ({:#04x})", val));
         self.push_byte(high);
-        self.cycle_count -= 1;
+        self.cycles -= 1;
         self.debug();
 
         self.set_debug_msg(orig_debug_msg);
@@ -754,18 +607,18 @@ impl CPU6502 {
         
         self.append_debug_msg("pull_word => high".to_string());
         let high = self.pull_byte();
-        self.cycle_count -= 1;
+        self.cycles -= 1;
         self.debug();
         self.set_debug_msg(orig_debug_msg.clone());
 
         self.append_debug_msg("pull_word => low".to_string());
         let low = self.pull_byte();
-        self.cycle_count -= 1;
+        self.cycles -= 1;
         self.debug();
         self.set_debug_msg(orig_debug_msg.clone());
         
         let ret = ((high as CPUWord) << 8) + low as CPUWord;
-        self.cycle_count -= 1;
+        self.cycles -= 1;
         self.debug();
 
         self.debug_ret_word("pull_word", ret);
@@ -835,8 +688,8 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
-    pub fn adc(&mut self, mode: AddrMode) {
-        use AddrMode::*;
+    pub fn adc(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
 
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("adc".to_string());
@@ -865,8 +718,8 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
-    pub fn and(&mut self, mode: AddrMode) {
-        use AddrMode::*;
+    pub fn and(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
 
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("and".to_string());
@@ -890,8 +743,8 @@ impl CPU6502 {
     }
 
     /// 1 - 6 cycles
-    pub fn asl(&mut self, mode: AddrMode) {
-        use AddrMode::*;
+    pub fn asl(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
 
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("asl".to_string());
@@ -913,7 +766,7 @@ impl CPU6502 {
         self.carry_if(val & 0b1000_0000 != 0);
 
         val <<= 1;
-        self.cycle_count += 1;
+        self.cycles += 1;
 
         self.check_zero(val);
         self.check_negative(val);
@@ -928,8 +781,8 @@ impl CPU6502 {
 
     /// 2 - 3 cycles
     // ! todo: add debug information
-    pub fn bit(&mut self, mode: AddrMode) {
-        use AddrMode::*;
+    pub fn bit(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
 
         let val = match mode {
             ZPG => self.zpg(),
@@ -937,7 +790,7 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for BIT")
         };
 
-        self.cycle_count += 1;
+        self.cycles += 1;
 
         self.check_zero(self.ac & val);
         self.check_negative(val);
@@ -950,8 +803,8 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
-    pub fn lda(&mut self, mode: AddrMode) {
-        use AddrMode::*;
+    pub fn lda(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
 
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("lda".to_string());
@@ -980,135 +833,267 @@ impl CPU6502 {
     }
 }
 
-/// Dedicated impl block for cpu instruction execution
+/// Dedicated block for decoding and executing cpu instructions
 impl CPU6502 {
+    pub fn decode_next_byte(&mut self) -> CPUInstruction {
+        use CPUInstruction::*;
+        use CPUAddrMode::*;
+
+        let opcode = self.get_next_byte();
+
+        match opcode {
+            0x00 => BRK(IMP),
+            0x01 => ORA(IDX),
+            0x05 => ORA(ZPG),
+            0x06 => ASL(ZPG),
+            0x08 => PHP(IMP),
+            0x09 => ORA(IMM),
+            0x0A => ASL(ACC),
+            0x0D => ORA(ABS),
+            0x0E => ASL(ABS),
+            0x10 => BPL(REL),
+            0x11 => ORA(IDY),
+            0x15 => ORA(ZPX),
+            0x18 => CLC(IMP),
+            0x19 => ORA(ABY),
+            0x1D => ORA(ABX),
+            0x1E => ASL(ABX),
+            0x16 => ASL(ZPX),
+            0x20 => JSR(ABS),
+            0x21 => AND(IDX),
+            0x24 => BIT(ZPG),
+            0x25 => AND(ZPG),
+            0x26 => ROL(ZPG),
+            0x28 => PLP(IMP),
+            0x29 => AND(IMM),
+            0x2A => ROL(ACC),
+            0x2C => BIT(ABS),
+            0x2D => AND(ABS),
+            0x2E => ROL(ABS),
+            0x30 => BMI(REL),
+            0x31 => AND(IDY),
+            0x35 => AND(ZPX),
+            0x36 => ROL(ZPX),
+            0x38 => SEC(IMP),
+            0x39 => AND(ABY),
+            0x3D => AND(ABX),
+            0x3E => ROL(ABX),
+            0x40 => RTI(IMP),
+            0x41 => EOR(IDX),
+            0x45 => EOR(ZPG),
+            0x46 => LSR(ZPG),
+            0x48 => PHA(IMP),
+            0x49 => EOR(IMM),
+            0x4A => LSR(ACC),
+            0x4C => JMP(ABS),
+            0x4D => EOR(ABS),
+            0x4E => LSR(ABS),
+            0x50 => BVC(REL),
+            0x51 => EOR(IDY),
+            0x55 => EOR(ZPX),
+            0x56 => LSR(ZPX),
+            0x58 => CLI(IMP),
+            0x59 => EOR(ABY),
+            0x5D => EOR(ABX),
+            0x5E => LSR(ABX),
+            0x60 => RTS(IMP),
+            0x61 => ADC(IDX),
+            0x65 => ADC(ZPG),
+            0x66 => ROR(ZPG),
+            0x68 => PLA(IMP),
+            0x69 => ADC(IMM),
+            0x6A => ROR(ACC),
+            0x6C => JMP(IND),
+            0x6D => ADC(ABS),
+            0x6E => ROR(ABS),
+            0x70 => BVS(REL),
+            0x71 => ADC(IDY),
+            0x75 => ADC(ZPX),
+            0x76 => ROR(ZPX),
+            0x78 => SEI(IMP),
+            0x79 => ADC(ABY),
+            0x7D => ADC(ABX),
+            0x7E => ROR(ABX),
+            0x81 => STA(IDX),
+            0x84 => STY(ZPG),
+            0x85 => STA(ZPG),
+            0x86 => STX(ZPG),
+            0x88 => DEY(IMP),
+            0x8A => TXA(IMP),
+            0x8C => STY(ABS),
+            0x8D => STA(ABS),
+            0x8E => STX(ABS),
+            0x90 => BCC(REL),
+            0x91 => STA(IDY),
+            0x94 => STY(ZPX),
+            0x95 => STA(ZPX),
+            0x96 => STX(ZPY),
+            0x98 => TYA(IMP),
+            0x99 => STA(ABY),
+            0x9A => TXS(IMP),
+            0x9D => STA(ABX),
+            0xA0 => LDY(IMM),
+            0xA1 => LDA(IDX),
+            0xA2 => LDX(IMM),
+            0xA4 => LDY(ZPG),
+            0xA5 => LDA(ZPG),
+            0xA6 => LDX(ZPG),
+            0xA8 => TAY(IMP),
+            0xA9 => LDA(IMM),
+            0xAA => TAX(IMP),
+            0xAC => LDY(ABS),
+            0xAD => LDA(ABS),
+            0xAE => LDX(ABS),
+            0xB0 => BCS(REL),
+            0xB1 => LDA(IDY),
+            0xB4 => LDY(ZPX),
+            0xB5 => LDA(ZPX),
+            0xB6 => LDX(ZPY),
+            0xB8 => CLV(IMP),
+            0xB9 => LDA(ABY),
+            0xBA => TSX(IMP),
+            0xBC => LDY(ABX),
+            0xBD => LDA(ABX),
+            0xBE => LDX(ABY),
+            0xC0 => CPY(IMM),
+            0xC1 => CMP(IDX),
+            0xC4 => CMP(ZPG),
+            0xC5 => CMP(ZPG),
+            0xC6 => DEC(ZPG),
+            0xC8 => INY(IMP),
+            0xC9 => CMP(IMM),
+            0xCA => DEX(IMP),
+            0xCC => CPY(ABS),
+            0xCD => CMP(ABS),
+            0xCE => DEC(ABS),
+            0xD0 => BNE(REL),
+            0xD1 => CMP(IDY),
+            0xD5 => CMP(ZPX),
+            0xD6 => DEC(ZPX),
+            0xD8 => CLD(IMP),
+            0xD9 => CMP(ABY),
+            0xDD => CMP(ABX),
+            0xDE => DEC(ABX),
+            0xE0 => CPX(IMM),
+            0xE1 => SBC(IDX),
+            0xE4 => CPX(ZPG),
+            0xE5 => SBC(ZPG),
+            0xE6 => INC(ZPG),
+            0xE8 => INX(IMP),
+            0xE9 => SBC(IMM),
+            0xEA => NOP(IMP),
+            0xEC => CPX(ABS),
+            0xED => SBC(ABS),
+            0xEE => INC(ABS),
+            0xF0 => BEQ(REL),
+            0xF1 => SBC(IDY),
+            0xF5 => SBC(ZPX),
+            0xF6 => INC(ZPX),
+            0xF8 => SED(IMP),
+            0xF9 => SBC(ABY),
+            0xFD => SBC(ABX),
+            0xFE => INC(ABX),
+            
+            // Non-spec/illegal instruction codes
+            0xFF => HLT(IMP),
+            _ => panic!("Invalid opcode: {:#04x}", opcode),
+        }
+    }
+
     /// 1 + (op cycles) cycles
-    pub fn execute_next_ins(&mut self) -> CPUByte {
-        use cpu_ins::*;
-        use AddrMode::*;
+    pub fn execute_next_ins(&mut self) -> CPUInstruction {
+        use CPUInstruction::*;
+        use CPUAddrMode::*;
 
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("execute_next_command".to_string());
 
-        let ins = self.get_next_byte();
+        let ins = self.decode_next_byte();
+
         match ins {
-            // ADC
-            ADC_IMM => self.adc(IMM),
-            ADC_ZPG => self.adc(ZPG),
-            ADC_ZPX => self.adc(ZPX),
-            ADC_ABS => self.adc(ABS),
-            ADC_ABX => self.adc(ABX),
-            ADC_ABY => self.adc(ABY),
-            ADC_INX => self.adc(INX),
-            ADC_INY => self.adc(INY),
-
-            // AND
-            AND_IMM => self.and(IMM),
-            AND_ZPG => self.and(ZPG),
-            AND_ZPX => self.and(ZPX),
-            AND_ABS => self.and(ABS),
-            AND_ABX => self.and(ABX),
-            AND_ABY => self.and(ABY),
-            AND_INX => self.and(INX),
-            AND_INY => self.and(INY),
-
-            // ASL
-            ASL_ACC => self.asl(ACC),
-            ASL_ZPG => self.asl(ZPG),
-            ASL_ZPX => self.asl(ZPX),
-            ASL_ABS => self.asl(ABS),
-            ASL_ABX => self.asl(ABX),
-
-            // BCC
-            BCC_REL => {
-                self.cycle_count += 1;
+            ADC(mode) => self.adc(mode),
+            AND(mode) => self.and(mode),
+            ASL(mode) => self.asl(mode),
+            // ! todo: add debug information
+            BCC(REL) => {
+                self.cycles += 1;
                 if !self.is_carry() {
-                    self.cycle_count += 1;
+                    self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
 
                     if self.pc / 256 != orig / 256 {
-                        self.cycle_count += 2;
+                        self.cycles += 2;
                     }
                 }
             },
-
-            // BCS
-            BCS_REL => {
-                self.cycle_count += 1;
+            // ! todo: add debug information
+            BCS(REL) => {
+                self.cycles += 1;
                 if self.is_carry() {
-                    self.cycle_count += 1;
+                    self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
 
                     if self.pc / 256 != orig / 256 {
-                        self.cycle_count += 2;
+                        self.cycles += 2;
                     }
                 }
             },
-
-            // BEQ
-            BEQ_REL => {
-                self.cycle_count += 1;
+            // ! todo: add debug information
+            BEQ(REL) => {
+                self.cycles += 1;
                 if self.is_zero() {
-                    self.cycle_count += 1;
+                    self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
 
                     if self.pc / 256 != orig / 256 {
-                        self.cycle_count += 2;
+                        self.cycles += 2;
                     }
                 }
             },
-
-            // BIT
-            BIT_ZPG => self.bit(ZPG),
-            BIT_ABS => self.bit(ABS),
-
-            // BMI
-            BMI_REL => {
-                self.cycle_count += 1;
+            BIT(mode) => self.bit(mode),
+            // ! todo: add debug information
+            BMI(REL) => {
+                self.cycles += 1;
                 if self.is_negative() {
-                    self.cycle_count += 1;
+                    self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
 
                     if self.pc / 256 != orig / 256 {
-                        self.cycle_count += 2;
+                        self.cycles += 2;
                     }
                 }
             },
-
-            // BNE
-            BNE_REL => {
-                self.cycle_count += 1;
+            // ! todo: add debug information
+            BNE(REL) => {
+                self.cycles += 1;
                 if !self.is_zero() {
-                    self.cycle_count += 1;
+                    self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
 
                     if self.pc / 256 != orig / 256 {
-                        self.cycle_count += 2;
+                        self.cycles += 2;
                     }
                 }
             },
-
-            // BPL
-            BPL_REL => {
-                self.cycle_count += 1;
+            // ! todo: add debug information
+            BPL(REL) => {
+                self.cycles += 1;
                 if !self.is_negative() {
-                    self.cycle_count += 1;
+                    self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
 
                     if self.pc / 256 != orig / 256 {
-                        self.cycle_count += 2;
+                        self.cycles += 2;
                     }
                 }
             },
-
-            // BRK
-            BRK_IMP => {
+            BRK(IMP) => {
                 let orig_debug_msg = self.debug_msg.clone();
 
                 self.append_debug_msg("brk => push_pc".to_string());
@@ -1128,143 +1113,132 @@ impl CPU6502 {
                 self.set_debug_msg(orig_debug_msg);
             },
             // !
-            // ! todo: Add debug information in conditional branch instructions
-            // !
             // ! todo: Continue instruction implementation
             // !
-            // LDA
-            LDA_IMM => self.lda(IMM),
-            LDA_ZPG => self.lda(ZPG),
-            LDA_ZPX => self.lda(ZPX),
-            LDA_ABS => self.lda(ABS),
-            LDA_ABX => self.lda(ABX),
-            LDA_ABY => self.lda(ABY),
-            LDA_INX => self.lda(INX),
-            LDA_INY => self.lda(INY),
-
-            // HLT
-            HLT_IMP => { self.cycle_count += 1; },
-            e => panic!("Invalid instrucion code: {}", e),
+            HLT(IMP) => { self.cycles += 1; },
+            LDA(mode) => self.lda(mode),
+            _ => panic!("Unimplemented instruction: {:?}", ins),
         }
         self.set_debug_msg(orig_debug_msg);
+
         ins
     }
 }
 
-/// Cpu utility functions (none affect cycle count)
+/// Cpu utility functions (cycle count unaffected)
 impl CPU6502 {
     /// 0 cycles
     pub fn is_carry(&self) -> bool {
-        self.ps & 0b00000001 != 0
+        self.ps & 0b0000_0001 != 0
     }
 
     /// 0 cycles
     pub fn is_zero(&self) -> bool {
-        self.ps & 0b00000010 != 0
+        self.ps & 0b0000_0010 != 0
     }
 
     /// 0 cycles
     pub fn is_interrupt_disable(&self) -> bool {
-        self.ps & 0b00000100 != 0
+        self.ps & 0b0000_0100 != 0
     }
 
     /// 0 cycles
     pub fn is_decimal_mode(&self) -> bool {
-        self.ps & 0b00001000 != 0
+        self.ps & 0b0000_1000 != 0
     }
 
     /// 0 cycles
     pub fn is_break_command(&self) -> bool {
-        self.ps & 0b00010000 != 0
+        self.ps & 0b0001_0000 != 0
     }
 
     /// 0 cycles
     pub fn is_overflow(&self) -> bool {
-        self.ps & 0b00100000 != 0
+        self.ps & 0b0100_0000 != 0
     }
 
     /// 0 cycles
     pub fn is_negative(&self) -> bool {
-        self.ps & 0b01000000 != 0
+        self.ps & 0b1000_0000 != 0
     }
 
     /// 0 cycles
     pub fn reset_status_flags(&mut self) {
-        self.ps = 0b00000000;
+        self.ps = 0b0000_0000;
     }
 
     /// 0 cycles
     pub fn set_carry(&mut self) {
-        self.ps |= 0b00000001;
+        self.ps |= 0b0000_0001;
     }
 
     /// 0 cycles
     pub fn set_zero(&mut self) {
-        self.ps |= 0b00000010;
+        self.ps |= 0b0000_0010;
     }
 
     /// 0 cycles
     pub fn set_interrupt_disable(&mut self) {
-        self.ps |= 0b00000100;
+        self.ps |= 0b0000_0100;
     }
 
     /// 0 cycles
     pub fn set_decimal_mode(&mut self) {
-        self.ps |= 0b00001000;
+        self.ps |= 0b0000_1000;
     }
 
     /// 0 cycles
     pub fn set_break_command(&mut self) {
-        self.ps |= 0b00010000;
+        self.ps |= 0b0001_0000;
     }
 
     /// 0 cycles
     pub fn set_overflow(&mut self) {
-        self.ps |= 0b00100000;
+        self.ps |= 0b0100_0000;
     }
 
     /// 0 cycles
     pub fn set_negative(&mut self) {
-        self.ps |= 0b01000000;
+        self.ps |= 0b1000_0000;
     }
 
     /// 0 cycles
     pub fn unset_carry(&mut self) {
-        self.ps &= 0b11111110;
+        self.ps &= 0b1111_1110;
     }
 
     /// 0 cycles
     pub fn unset_zero(&mut self) {
-        self.ps &= 0b11111101;
+        self.ps &= 0b1111_1101;
     }
 
     /// 0 cycles
     pub fn unset_interrupt_disable(&mut self) {
-        self.ps &= 0b11111011;
+        self.ps &= 0b1111_1011;
     }
 
     /// 0 cycles
     pub fn unset_decimal_mode(&mut self) {
-        self.ps &= 0b11110111;
+        self.ps &= 0b1111_0111;
     }
 
     /// 0 cycles
     pub fn unset_break_command(&mut self) {
-        self.ps &= 0b11101111;
+        self.ps &= 0b1110_1111;
     }
 
     /// 0 cycles
     pub fn unset_overflow(&mut self) {
-        self.ps &= 0b11011111;
+        self.ps &= 0b1011_1111;
     }
 
     /// 0 cycles
     pub fn unset_negative(&mut self) {
-        self.ps &= 0b10111111;
+        self.ps &= 0b0111_1111;
     }
 }
 
-/// Cpu debugging utility functions (none affect cycle count)
+/// Cpu debugging utility functions (cycle count unaffected)
 impl CPU6502 {
     pub fn set_dbg_mode(&mut self, dbg: bool) {
         self.dbg = dbg;
@@ -1280,14 +1254,14 @@ impl CPU6502 {
     /// Print the name and return value of a cpu function returning a CPUByte
     pub fn debug_ret_byte(&self, fname: &'static str, ret_val: CPUByte) {
         if self.dbg {
-            println!("{} -> {:#04x}\n", fname, ret_val);
+            println!("-> {}: {:#04x}\n", fname, ret_val);
         }
     }
 
     /// Print the name and return value of a cpu function returning a CPUWord
     pub fn debug_ret_word(&self, fname: &'static str, ret_val: CPUWord) {
         if self.dbg {
-            println!("{} -> {:#06x}\n", fname, ret_val);
+            println!("-> {}: {:#06x}\n", fname, ret_val);
         }
     }
 
@@ -1308,8 +1282,8 @@ impl CPU6502 {
 
 impl std::fmt::Display for CPU6502 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "cycle count: {}\npc: {:#06x}\nnext byte: {:#04x}\nnext word: {:#06x}\nps (NOBDIZC): {:07b}\nsp: {:#04x}\nac: {:#04x}\nrx: {:#04x}\nry: {:#04x}",
-            self.cycle_count,
+        write!(f, "cycle count: {}\npc: {:#06x}\nnext byte: {:#04x}\nnext word: {:#06x}\nps (NV0BDIZC): {:08b}\nsp: {:#04x}\nac: {:#04x}\nrx: {:#04x}\nry: {:#04x}",
+            self.cycles,
             self.pc,
             self.cpu_mem[self.pc as usize],
             ((self.cpu_mem[(self.pc.wrapping_add(1)) as usize] as CPUWord) << 8) + self.cpu_mem[self.pc as usize] as CPUWord,

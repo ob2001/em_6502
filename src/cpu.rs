@@ -183,7 +183,7 @@ pub struct CPU6502 {
     debug_msg: Vec<String>,
 }
 
-/// Cpu creation/destruction, do not interact with runtime
+/// CPU creation/destruction, do not interact with runtime
 impl CPU6502 {
     /// Create a new CPU6502 with registers set to defaults and zeroed memory
     pub fn new() -> Self {
@@ -225,7 +225,7 @@ impl CPU6502 {
     }
 }
 
-/// Runtime functions (most affect cycle count)
+/// CPU internal runtime functions (most affect cycle count)
 impl CPU6502 {
     /// Reset the cpu and set the program counter to the address stored in the power-on index memory location
     pub fn power_on(&mut self) {
@@ -634,150 +634,9 @@ impl CPU6502 {
 
         self.debug_imm(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", init_val, add_val, final_val))
     }
-
-    /// 1 - 5 cycles
-    pub fn adc(&mut self, mode: CPUAddrMode) {
-        use CPUAddrMode::*;
-
-        self.push_debug_msg("ADC".to_string());
-
-        let init_val = self.ac;
-        let add_val = if self.is_carry() {1} else {0} + match mode {
-            IMM => self.imm(),
-            ZPG => self.zpg(),
-            ZPX => self.zpx(),
-            ABS => self.abs(),
-            ABX => self.abx(),
-            ABY => self.aby(),
-            IDX => self.idx(),
-            IDY => self.idy(),
-            _ => panic!("Invalid address mode for ADC"),
-        };
-        
-        self.ac += add_val;
-        
-        self.check_overflow(init_val, add_val, self.ac);
-        self.carry_if(self.is_overflow());
-        self.check_negative(self.ac);
-        self.check_zero(self.ac);
-
-        self.restore_debug_msg();
-    }
-
-    /// 1 - 5 cycles
-    pub fn and(&mut self, mode: CPUAddrMode) {
-        use CPUAddrMode::*;
-
-        self.push_debug_msg("AND".to_string());
-
-        self.ac &= match mode {
-            IMM => self.imm(),
-            ZPG => self.zpg(),
-            ZPX => self.zpx(),
-            ABS => self.abs(),
-            ABX => self.abx(),
-            ABY => self.aby(),
-            IDX => self.idx(),
-            IDY => self.idy(),
-            _ => panic!("Invalid address mode for AND"),
-        };
-
-        self.check_zero(self.ac);
-        self.check_negative(self.ac);
-
-        self.restore_debug_msg();
-    }
-
-    /// 1 - 6 cycles
-    pub fn asl(&mut self, mode: CPUAddrMode) {
-        use CPUAddrMode::*;
-
-        self.push_debug_msg("ASL".to_string());
-
-        let addr = match mode {
-            ACC => None,
-            ZPG => Some(0x0000 + self.get_next_byte() as CPUWord),
-            ZPX => Some(0x0000 + self.get_next_byte() as CPUWord),
-            ABS => Some(self.get_next_word()),
-            ABX => Some(self.get_next_word()),
-            _ => panic!("Invalid address mode for ASL"),
-        };
-
-        let mut val = match addr {
-            None => self.ac,
-            Some(a) => self.cpu_mem[a as usize],
-        };
-
-        self.carry_if(val & 0b1000_0000 != 0);
-
-        val <<= 1;
-        self.cycles += 1;
-
-        self.check_zero(val);
-        self.check_negative(val);
-
-        match mode {
-            ACC => { self.ac = val },
-            _ => { self.cpu_mem[addr.unwrap() as usize] = val },
-        };
-
-        self.restore_debug_msg();
-    }
-
-    /// 2 - 3 cycles
-    pub fn bit(&mut self, mode: CPUAddrMode) {
-        use CPUAddrMode::*;
-
-        self.push_debug_msg("BIT".to_string());
-
-        let val = match mode {
-            ZPG => self.zpg(),
-            ABS => self.abs(),
-            _ => panic!("Invalid address mode for BIT")
-        };
-
-        self.cycles += 1;
-
-        self.check_zero(self.ac & val);
-        self.check_negative(val);
-
-        if val & 0b0100_0000 != 0 {
-            self.set_overflow();
-        } else {
-            self.unset_overflow();
-        }
-
-        self.restore_debug_msg();
-    }
-
-    /// 1 - 5 cycles
-    pub fn lda(&mut self, mode: CPUAddrMode) {
-        use CPUAddrMode::*;
-
-        self.push_debug_msg("LDA".to_string());
-
-        self.ac = match mode {
-            IMM => self.imm(),
-            ZPG => self.zpg(),
-            ZPX => self.zpx(),
-            ABS => self.abs(),
-            ABX => self.abx(),
-            ABY => self.aby(),
-            IDX => self.idx(),
-            IDY => self.idy(),
-            _ => panic!("Invalid address mode for LDA"),
-        };
-
-        self.debug_imm("ret -> ac".to_string());
-
-        self.check_zero(self.ac);
-        self.check_negative(self.ac);
-
-        self.restore_debug_msg();
-    }
 }
 
-/// Dedicated block for decoding and executing cpu instructions
+/// CPU instruction decoding and execution
 impl CPU6502 {
     /// 1 cycle
     pub fn decode_next_ins(&mut self) -> CPUInstruction {
@@ -1077,7 +936,151 @@ impl CPU6502 {
     }
 }
 
-/// Cpu utility functions (cycle count unaffected)
+/// CPU instruction implementations
+impl CPU6502 {
+    /// 1 - 5 cycles
+    pub fn adc(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
+
+        self.push_debug_msg("ADC".to_string());
+
+        let init_val = self.ac;
+        let add_val = if self.is_carry() {1} else {0} + match mode {
+            IMM => self.imm(),
+            ZPG => self.zpg(),
+            ZPX => self.zpx(),
+            ABS => self.abs(),
+            ABX => self.abx(),
+            ABY => self.aby(),
+            IDX => self.idx(),
+            IDY => self.idy(),
+            _ => panic!("Invalid address mode for ADC"),
+        };
+        
+        self.ac += add_val;
+        
+        self.check_overflow(init_val, add_val, self.ac);
+        self.carry_if(self.is_overflow());
+        self.check_negative(self.ac);
+        self.check_zero(self.ac);
+
+        self.restore_debug_msg();
+    }
+
+    /// 1 - 5 cycles
+    pub fn and(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
+
+        self.push_debug_msg("AND".to_string());
+
+        self.ac &= match mode {
+            IMM => self.imm(),
+            ZPG => self.zpg(),
+            ZPX => self.zpx(),
+            ABS => self.abs(),
+            ABX => self.abx(),
+            ABY => self.aby(),
+            IDX => self.idx(),
+            IDY => self.idy(),
+            _ => panic!("Invalid address mode for AND"),
+        };
+
+        self.check_zero(self.ac);
+        self.check_negative(self.ac);
+
+        self.restore_debug_msg();
+    }
+
+    /// 1 - 6 cycles
+    pub fn asl(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
+
+        self.push_debug_msg("ASL".to_string());
+
+        let addr = match mode {
+            ACC => None,
+            ZPG => Some(0x0000 + self.get_next_byte() as CPUWord),
+            ZPX => Some(0x0000 + self.get_next_byte() as CPUWord),
+            ABS => Some(self.get_next_word()),
+            ABX => Some(self.get_next_word()),
+            _ => panic!("Invalid address mode for ASL"),
+        };
+
+        let mut val = match addr {
+            None => self.ac,
+            Some(a) => self.cpu_mem[a as usize],
+        };
+
+        self.carry_if(val & 0b1000_0000 != 0);
+
+        val <<= 1;
+        self.cycles += 1;
+
+        self.check_zero(val);
+        self.check_negative(val);
+
+        match mode {
+            ACC => { self.ac = val },
+            _ => { self.cpu_mem[addr.unwrap() as usize] = val },
+        };
+
+        self.restore_debug_msg();
+    }
+
+    /// 2 - 3 cycles
+    pub fn bit(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
+
+        self.push_debug_msg("BIT".to_string());
+
+        let val = match mode {
+            ZPG => self.zpg(),
+            ABS => self.abs(),
+            _ => panic!("Invalid address mode for BIT")
+        };
+
+        self.cycles += 1;
+
+        self.check_zero(self.ac & val);
+        self.check_negative(val);
+
+        if val & 0b0100_0000 != 0 {
+            self.set_overflow();
+        } else {
+            self.unset_overflow();
+        }
+
+        self.restore_debug_msg();
+    }
+
+    /// 1 - 5 cycles
+    pub fn lda(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
+
+        self.push_debug_msg("LDA".to_string());
+
+        self.ac = match mode {
+            IMM => self.imm(),
+            ZPG => self.zpg(),
+            ZPX => self.zpx(),
+            ABS => self.abs(),
+            ABX => self.abx(),
+            ABY => self.aby(),
+            IDX => self.idx(),
+            IDY => self.idy(),
+            _ => panic!("Invalid address mode for LDA"),
+        };
+
+        self.debug_imm("ret -> ac".to_string());
+
+        self.check_zero(self.ac);
+        self.check_negative(self.ac);
+
+        self.restore_debug_msg();
+    }
+}
+
+/// CPU utility functions (cycle count unaffected)
 impl CPU6502 {
     /// 0 cycles
     pub fn is_carry(&self) -> bool {
@@ -1190,7 +1193,7 @@ impl CPU6502 {
     }
 }
 
-/// Cpu debugging utility functions (cycle count unaffected)
+/// CPU debugging utility functions (cycle count unaffected)
 impl CPU6502 {
     /// Allows user to switch on or off cpu debugging messages.
     /// 

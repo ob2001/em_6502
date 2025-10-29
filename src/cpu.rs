@@ -858,15 +858,19 @@ impl CPU6502 {
     }
 
     /// 0 cycles
-    pub fn check_overflow(&mut self, init_pos: bool, val: CPUByte) {
-        if (init_pos && val & 0b1000_0000 != 0) || (!init_pos && val & 0b1000_0000 == 0) {
+    pub fn check_overflow(&mut self, init_val: CPUByte, add_val: CPUByte, final_val: CPUByte) {
+        let init_val_is_negative = init_val & 0b1000_0000 != 0;
+        let add_val_is_negative = add_val & 0b1000_0000 != 0;
+        let final_val_is_negative = final_val & 0b1000_0000 != 0;
+
+        if (init_val_is_negative && add_val_is_negative && !final_val_is_negative) || (!init_val_is_negative && !add_val_is_negative && final_val_is_negative){
             self.set_overflow()
         } else {
             self.unset_overflow();
         }
 
         let orig_debug_msg = self.debug_msg.clone();
-        self.append_debug_msg(format!("check_overflow (init_pos: {} val: {:#04x} / {:#010b})", init_pos, val, val));
+        self.append_debug_msg(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", init_val, add_val, final_val));
         self.debug();
         self.set_debug_msg(orig_debug_msg);
     }
@@ -878,9 +882,8 @@ impl CPU6502 {
         let orig_debug_msg = self.debug_msg.clone();
         self.append_debug_msg("adc".to_string());
 
-        let init_pos = self.ac & 0b1000_0000 == 0;
-        
-        self.ac += if self.is_carry() {1} else {0} + match mode {
+        let init_val = self.ac;
+        let add_val = if self.is_carry() {1} else {0} + match mode {
             IMM => self.imm(),
             ZPG => self.zpg(),
             ZPX => self.zpx(),
@@ -892,7 +895,9 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for ADC"),
         };
         
-        self.check_overflow(init_pos, self.ac);
+        self.ac += add_val;
+        
+        self.check_overflow(init_val, add_val, self.ac);
         self.carry_if(self.is_overflow());
         self.check_negative(self.ac);
         self.check_zero(self.ac);

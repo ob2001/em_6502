@@ -179,6 +179,21 @@ pub struct CPU6502 {
 
     dbg: bool,
     debug_msg: Vec<String>,
+
+    /// Defaults to `true`.
+    /// 
+    /// If false: will treat HLT opcode (0xFF) as an illegal opcode.
+    /// 
+    /// If true: will treat HLT opcode as any other legal opcode.
+    /// The HLT instruction is automatically supported by the instruction execution function.
+    allow_hlt: bool,
+
+    /// Defaults to `true`.
+    /// 
+    /// If `false`: CPU will panic on encountering an illegal opcode (except HLT if separately enabled)
+    /// 
+    /// If `true`: CPU will perform a NOP on encountering an illegal opcode (including HLT unless it's been seoarately enabled)
+    illegal_opcode_mode: bool,
 }
 
 /// CPU creation/setup functions, do not interact with runtime (No CPU cycles)
@@ -196,6 +211,8 @@ impl CPU6502 {
             cpu_mem: [0; CPU_MEMSIZE],
             dbg: false,
             debug_msg: vec![],
+            allow_hlt: true,
+            illegal_opcode_mode: true,
         }
     }
 
@@ -204,6 +221,14 @@ impl CPU6502 {
         let mut cpu = Self::new();
         cpu.flash_mem(mem);
         cpu
+    }
+
+    pub fn set_allow_hlt(&mut self, mode: bool) {
+        self.allow_hlt = mode;
+    }
+
+    pub fn set_illegal_opcode_mode(&mut self, mode: bool) {
+        self.illegal_opcode_mode = mode;
     }
 
     /// Set the contents of the CPU memory to `mem`
@@ -833,8 +858,22 @@ impl CPU6502 {
             0xFE => INC(ABX),
             
             // Non-spec/illegal instruction codes
-            0xFF => HLT(IMP),
-            _ => panic!("Invalid opcode: {:#04x}", opcode),
+            0xFF => {
+                if self.allow_hlt {
+                    HLT(IMP) 
+                } else if self.illegal_opcode_mode {
+                    NOP(IMP)
+                } else {
+                    panic!("Invalid opcode: {:#04x}", opcode)    
+                }
+            },
+            _ => {
+                if self.illegal_opcode_mode {
+                    NOP(IMP)
+                } else {
+                    panic!("Invalid opcode: {:#04x}", opcode)
+                }
+            },
         };
 
         self.debug();

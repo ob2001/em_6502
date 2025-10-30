@@ -1,5 +1,7 @@
-use crate::prelude::*;
+use crate::{mem, prelude::*};
 use crate::{bitfield::BitField, bitmasks::BitMasks};
+
+pub type InstructionResult = Result<CPUInstruction, String>;
 
 /// 56 spec instructions, +1 added instruction for debugging
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -182,18 +184,26 @@ pub struct CPU6502 {
 
     /// Defaults to `true`.
     /// 
-    /// If false: will treat HLT opcode (0xFF) as an illegal opcode.
+    /// When `allow_hlt == false` CPU will treat HLT opcode (0xFF) as any other illegal opcode.
     /// 
-    /// If true: will treat HLT opcode as any other legal opcode.
-    /// The HLT instruction is automatically supported by the instruction execution function.
+    /// When `allow_hlt == true` CPU will treat HLT opcode as a legal opcode and function accordingly.
     allow_hlt: bool,
 
     /// Defaults to `true`.
     /// 
-    /// If `false`: CPU will panic on encountering an illegal opcode (except HLT if separately enabled)
+    /// When `illegal_opcode_mode == false` CPU will panic on encountering any illegal opcode 
+    /// (except HLT if separately enabled).
     /// 
-    /// If `true`: CPU will perform a NOP on encountering an illegal opcode (including HLT unless it's been seoarately enabled)
+    /// When `illegal_opcode_mode == true` CPU will perform a NOP on encountering an illegal opcode
+    /// (including HLT unless it's been separately enabled)
     illegal_opcode_mode: bool,
+
+    /// Defaults to 0.
+    /// 
+    /// Halt CPU before decoding next instruction if cycle_count >= cycle_limit.
+    /// 
+    /// Set cycle_limit to 0 to disable this behaviour.
+    cycle_limit: usize,
 }
 
 /// CPU creation/setup functions, do not interact with runtime (No CPU cycles)
@@ -213,6 +223,7 @@ impl CPU6502 {
             debug_msg: vec![],
             allow_hlt: true,
             illegal_opcode_mode: true,
+            cycle_limit: 0,
         }
     }
 
@@ -223,12 +234,41 @@ impl CPU6502 {
         cpu
     }
 
+    pub fn new_with_mem_from_file(mem_file: String) -> Result<Self, String> {
+        if let Ok(mem) = mem::new_from_file(mem_file.clone()) {
+            Ok(Self::new_with_mem(mem))
+        } else {
+            Err(format!("Error loading or parsing memory file: {}", mem_file))
+        }
+    }
+
+    /// Sets the `allow_hlt` field of the CPU.
+    /// 
+    /// When `allow_hlt == false` CPU will treat HLT opcode (0xFF) as any other illegal opcode.
+    /// 
+    /// When `allow_hlt == true` CPU will treat HLT opcode as a legal opcode and function accordingly.
     pub fn set_allow_hlt(&mut self, mode: bool) {
         self.allow_hlt = mode;
     }
 
+    /// Sets the `illegal_opcode_mode` field of the CPU.
+    /// 
+    /// When `illegal_opcode_mode == false` CPU will panic on encountering an illegal opcode 
+    /// (except HLT if separately enabled).
+    /// 
+    /// When `illegal_opcode_mode == true` CPU will perform a NOP on encountering an illegal opcode
+    /// (including HLT unless it's been separately enabled).
     pub fn set_illegal_opcode_mode(&mut self, mode: bool) {
         self.illegal_opcode_mode = mode;
+    }
+
+    /// Sets the `cycle_limit` field of the CPU.
+    /// 
+    /// CPU will halt before decoding next instruction if `cycle_count >= cycle_limit`.
+    /// 
+    /// Set `cycle_limit` to 0 to disable this behaviour.
+    pub fn set_cycle_limit(&mut self, limit: usize) {
+        self.cycle_limit = limit;
     }
 
     /// Set the contents of the CPU memory to `mem`
@@ -250,7 +290,8 @@ impl CPU6502 {
 
 /// CPU internal runtime functions
 impl CPU6502 {
-    /// Reset the CPU and set the program counter to the address stored in the power-on index memory location
+    /// Reset the CPU to pwoer-on state, then set the program counter to the address
+    /// stored at the Power On Reset memory location (0xFFFC/0xFFFD).
     pub fn power_on(&mut self) {
         self.reset();
         self.clear_debug_msg();
@@ -264,26 +305,60 @@ impl CPU6502 {
         self.clear_debug_msg();
     }
 
-    /// Reset the CPU to power-on state before starting to run
+    /// Perform CPU reset then begin emulation loop.
     pub fn power_on_and_run(&mut self, debugging: bool) {
         self.dbg = debugging;
 
         self.power_on();
 
         self.push_debug_msg("run".to_string());
-        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) { };
+        loop {
+            let ins = self.execute_next_ins();
+            match ins {
+                Err(e) => {
+                    self.clear_debug_msg();
+                    self.debug_imm(format!("!!! CPU halting on encountering illegal opcode: {} !!!", e));
+                    panic!("\nCPU halt on encountering illegal opcode: {}.\nTo allow CPU to pass over illegal opcodes, use `cpu.set_illegal_opcode_mode(true)`\n", e)
+                }
+                Ok(CPUInstruction::HLT(CPUAddrMode::IMP)) => break,
+                Ok(_) => {},
+            }
+
+            if self.cycle_limit > 0 && self.cycles >= self.cycle_limit {
+                self.clear_debug_msg();
+                self.debug_imm("!!! CPU halting on exceeding cycle limit !!!".to_string());
+                break;
+            }
+        };
         self.restore_debug_msg();
 
-        self.debug_imm("!!!CPU halted!!!".to_string());
+        self.debug_imm("!!! CPU halted!!! ".to_string());
     }
 
-    /// Run without resetting CPU to power-on state
+    /// Begin CPU emulation loop without performing a reset.
     pub fn run_as_is(&mut self, debugging: bool) {
         self.dbg = debugging;
         self.clear_debug_msg();
 
         self.push_debug_msg("run_as_is".to_string());
-        while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) { };
+        loop {
+            let ins = self.execute_next_ins();
+            match ins {
+                Err(e) => {
+                    self.clear_debug_msg();
+                    self.debug_imm(format!("!!! CPU halting on encountering illegal opcode: {} !!!", e));
+                    panic!("\nCPU halt on encountering illegal opcode: {}.\nTo allow CPU to pass over illegal opcodes, use `cpu.set_illegal_opcode_mode(true)`\n", e)
+                }
+                Ok(CPUInstruction::HLT(CPUAddrMode::IMP)) => break,
+                Ok(_) => {},
+            }
+
+            if self.cycle_limit > 0 && self.cycles >= self.cycle_limit {
+                self.clear_debug_msg();
+                self.debug_imm("!!! CPU halting on exceeding cycle limit !!!".to_string());
+                break;
+            }
+        }
         self.restore_debug_msg();
 
         self.debug_imm("!!!CPU halted!!!".to_string());
@@ -695,7 +770,7 @@ impl CPU6502 {
     /// 1 cycle
     /// 
     /// Fetch the next CPUByte and decode it as the next CPU instruction.
-    pub fn decode_next_ins(&mut self) -> CPUInstruction {
+    pub fn decode_next_ins(&mut self) -> InstructionResult {
         use CPUInstruction::*;
         use CPUAddrMode::*;
 
@@ -864,14 +939,14 @@ impl CPU6502 {
                 } else if self.illegal_opcode_mode {
                     NOP(IMP)
                 } else {
-                    panic!("Invalid opcode: {:#04x}", opcode)    
+                    return Err(format!("{:#04X}", opcode))
                 }
             },
             _ => {
                 if self.illegal_opcode_mode {
                     NOP(IMP)
                 } else {
-                    panic!("Invalid opcode: {:#04x}", opcode)
+                    return Err(format!("{:#04X}", opcode))
                 }
             },
         };
@@ -880,20 +955,20 @@ impl CPU6502 {
         self.debug_ret_ins(ret);
 
         self.restore_debug_msg();
-        ret
+        Ok(ret)
     }
 
     /// Takes as many cycles as the instruction being executed.
     /// 
     /// Matches on the next CPUByte into its Instruction code, then executes
     /// the corresponding instruction.
-    pub fn execute_next_ins(&mut self) -> CPUInstruction {
+    pub fn execute_next_ins(&mut self) -> InstructionResult {
         use CPUInstruction::*;
         use CPUAddrMode::*;
 
         self.push_debug_msg("execute_next_ins".to_string());
 
-        let ins = self.decode_next_ins();
+        let ins = self.decode_next_ins()?;
 
         match ins {
             ADC(mode) => self.adc(mode),
@@ -939,11 +1014,15 @@ impl CPU6502 {
                 self.cycles += 1;
             },
             LDA(mode) => self.lda(mode),
-            _ => panic!("Unimplemented instruction: {:?}", ins),
+            NOP(IMP) => { 
+                self.cycles += 1; 
+                self.debug_imm("NOP".to_string());
+            }
+            _ => return Err(format!("Unimplemented instruction: {:?}", ins)),
         }
         self.restore_debug_msg();
 
-        ins
+        Ok(ins)
     }
 }
 

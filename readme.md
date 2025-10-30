@@ -11,6 +11,7 @@ Can direct CPU behaviour when decoding the HLT opcode specifically, as well as t
 Documentation and information sources:
 - http://www.6502.org/users/obelisk/6502/index.html
 - [NESDEV wiki - CPU](https://www.nesdev.org/wiki/CPU)
-  - https://www.nesdev.org/6502_cpu.txt
-  - https://www.nesdev.org/wiki/Status_flags#C
-- https://www.masswerk.at/6502/6502_instruction_set.html
+  - [CPU specifications, TXT](https://www.nesdev.org/6502_cpu.txt)
+  - [Status flags](https://www.nesdev.org/wiki/Status_flags#C)
+- [Interactive Instruction Set documentation](https://www.masswerk.at/6502/6502_instruction_set.html)
+- [Writing your own NES emulator Part 3 - the 6502 CPU](https://yizhang82.dev/nes-emu-cpu)

@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::{bitfield::BitField, bitmasks::BitMasks};
 
 /// 56 spec instructions, +1 added instruction for debugging
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -166,7 +167,7 @@ pub struct CPU6502 {
     /// - Bit 4: Break command: The break command bit is set when a BRK instruction has been executed and an interrupt has been generated to process it.
     /// - Bit 5: Overflow flag: Set during arithmetic operations if the result has yielded an invalid 2's complement result (e.g. adding two positive numbers nd ending up with a negative result). It is determined by looking at the carry between bits 6 and 7 and between bit 7 and the carry flag.
     /// - Bit 6: Negative flag: Set if the result of the last operation had bit 7 set to one.
-    ps: CPUByte,
+    ps: BitField,
 
     /// Counter incremented to emulate cpu clock cycles
     cycles: usize,
@@ -183,7 +184,7 @@ pub struct CPU6502 {
     debug_msg: Vec<String>,
 }
 
-/// CPU creation/destruction, do not interact with runtime
+/// CPU creation/setup, do not interact with runtime (No CPU cycles)
 impl CPU6502 {
     /// Create a new CPU6502 with registers set to defaults and zeroed memory
     pub fn new() -> Self {
@@ -193,7 +194,7 @@ impl CPU6502 {
             ac: 0,
             rx: 0,
             ry: 0,
-            ps: 0,
+            ps: BitField::new(0),
             cycles: 0,
             cpu_mem: [0; CPU_MEMSIZE],
             dbg: false,
@@ -220,12 +221,12 @@ impl CPU6502 {
         self.ac = 0;
         self.rx = 0;
         self.ry = 0;
-        self.ps = 0;
+        self.ps = BitField::new(0);
         self.cycles = 0;
     }
 }
 
-/// CPU internal runtime functions (most affect cycle count)
+/// CPU internal runtime functions
 impl CPU6502 {
     /// Reset the cpu and set the program counter to the address stored in the power-on index memory location
     pub fn power_on(&mut self) {
@@ -589,34 +590,21 @@ impl CPU6502 {
 
     /// 0 cycles
     pub fn check_zero(&mut self, val: CPUByte) {
-        if val == 0 {
-            self.set_zero();
-        } else {
-            self.unset_zero();
-        }
+        self.ps.set_bit(BitMasks::Z, val == 0);
 
         self.debug_imm(format!("check_zero ({:#04x})", val))
     }
 
     /// 0 cycles
     pub fn check_negative(&mut self, val: CPUByte) {
-        if val & 0b1000_0000 != 0 {
-            self.set_negative();
-        } else {
-            self.unset_negative();
-        }
+        self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
         self.debug_imm(format!("check_negative ({:#04x} / {:#010b})", val, val))
     }
 
     /// 0 cycles
     pub fn carry_if(&mut self, cond: bool) {
-        if cond {
-            self.set_carry()
-        } else {
-            self.unset_carry();
-        }
-
+        self.ps.set_bit(BitMasks::C, cond);
         self.debug_imm(format!("carry_if ({})", cond));
     }
 
@@ -626,11 +614,7 @@ impl CPU6502 {
         let add_val_is_negative = add_val & 0b1000_0000 != 0;
         let final_val_is_negative = final_val & 0b1000_0000 != 0;
 
-        if (init_val_is_negative && add_val_is_negative && !final_val_is_negative) || (!init_val_is_negative && !add_val_is_negative && final_val_is_negative){
-            self.set_overflow()
-        } else {
-            self.unset_overflow();
-        }
+        self.ps.set_bit(BitMasks::V, (init_val_is_negative && add_val_is_negative && !final_val_is_negative) || (!init_val_is_negative && !add_val_is_negative && final_val_is_negative));
 
         self.debug_imm(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", init_val, add_val, final_val))
     }
@@ -827,7 +811,7 @@ impl CPU6502 {
             // ! todo: add debug information
             BCC(REL) => {
                 self.cycles += 1;
-                if !self.is_carry() {
+                if !self.ps.test_bit(BitMasks::C) {
                     self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
@@ -840,7 +824,7 @@ impl CPU6502 {
             // ! todo: add debug information
             BCS(REL) => {
                 self.cycles += 1;
-                if self.is_carry() {
+                if self.ps.test_bit(BitMasks::C) {
                     self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
@@ -853,7 +837,7 @@ impl CPU6502 {
             // ! todo: add debug information
             BEQ(REL) => {
                 self.cycles += 1;
-                if self.is_zero() {
+                if self.ps.test_bit(BitMasks::Z) {
                     self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
@@ -867,7 +851,7 @@ impl CPU6502 {
             // ! todo: add debug information
             BMI(REL) => {
                 self.cycles += 1;
-                if self.is_negative() {
+                if self.ps.test_bit(BitMasks::N) {
                     self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
@@ -880,7 +864,7 @@ impl CPU6502 {
             // ! todo: add debug information
             BNE(REL) => {
                 self.cycles += 1;
-                if !self.is_zero() {
+                if !self.ps.test_bit(BitMasks::Z) {
                     self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
@@ -893,7 +877,7 @@ impl CPU6502 {
             // ! todo: add debug information
             BPL(REL) => {
                 self.cycles += 1;
-                if !self.is_negative() {
+                if !self.ps.test_bit(BitMasks::N) {
                     self.cycles += 1;
                     let orig = self.pc;
                     self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
@@ -911,10 +895,10 @@ impl CPU6502 {
                 self.restore_debug_msg();
 
                 self.push_debug_msg("push_ps".to_string());
-                self.push_byte(self.ps);
+                self.push_byte(self.ps.to_inner());
                 self.restore_debug_msg();
                 
-                self.set_break_command();
+                self.ps.set_bit(BitMasks::B, true);
 
                 self.push_debug_msg("jmp_to_loc_at_irq_vector".to_string());
                 self.pc = self.get_word_abs(0xFFFE);
@@ -945,7 +929,7 @@ impl CPU6502 {
         self.push_debug_msg("ADC".to_string());
 
         let init_val = self.ac;
-        let add_val = if self.is_carry() {1} else {0} + match mode {
+        let add_val = if self.ps.test_bit(BitMasks::C) {1} else {0} + match mode {
             IMM => self.imm(),
             ZPG => self.zpg(),
             ZPX => self.zpx(),
@@ -960,7 +944,7 @@ impl CPU6502 {
         self.ac += add_val;
         
         self.check_overflow(init_val, add_val, self.ac);
-        self.carry_if(self.is_overflow());
+        self.carry_if(self.ps.test_bit(BitMasks::V));
         self.check_negative(self.ac);
         self.check_zero(self.ac);
 
@@ -1044,11 +1028,7 @@ impl CPU6502 {
         self.check_zero(self.ac & val);
         self.check_negative(val);
 
-        if val & 0b0100_0000 != 0 {
-            self.set_overflow();
-        } else {
-            self.unset_overflow();
-        }
+        self.ps.set_bit(BitMasks::V, val & 0b0100_0000 != 0);
 
         self.restore_debug_msg();
     }
@@ -1080,120 +1060,7 @@ impl CPU6502 {
     }
 }
 
-/// CPU utility functions (cycle count unaffected)
-impl CPU6502 {
-    /// 0 cycles
-    pub fn is_carry(&self) -> bool {
-        self.ps & 0b0000_0001 != 0
-    }
-
-    /// 0 cycles
-    pub fn is_zero(&self) -> bool {
-        self.ps & 0b0000_0010 != 0
-    }
-
-    /// 0 cycles
-    pub fn is_interrupt_disable(&self) -> bool {
-        self.ps & 0b0000_0100 != 0
-    }
-
-    /// 0 cycles
-    pub fn is_decimal_mode(&self) -> bool {
-        self.ps & 0b0000_1000 != 0
-    }
-
-    /// 0 cycles
-    pub fn is_break_command(&self) -> bool {
-        self.ps & 0b0001_0000 != 0
-    }
-
-    /// 0 cycles
-    pub fn is_overflow(&self) -> bool {
-        self.ps & 0b0100_0000 != 0
-    }
-
-    /// 0 cycles
-    pub fn is_negative(&self) -> bool {
-        self.ps & 0b1000_0000 != 0
-    }
-
-    /// 0 cycles
-    pub fn reset_status_flags(&mut self) {
-        self.ps = 0b0000_0000;
-    }
-
-    /// 0 cycles
-    pub fn set_carry(&mut self) {
-        self.ps |= 0b0000_0001;
-    }
-
-    /// 0 cycles
-    pub fn set_zero(&mut self) {
-        self.ps |= 0b0000_0010;
-    }
-
-    /// 0 cycles
-    pub fn set_interrupt_disable(&mut self) {
-        self.ps |= 0b0000_0100;
-    }
-
-    /// 0 cycles
-    pub fn set_decimal_mode(&mut self) {
-        self.ps |= 0b0000_1000;
-    }
-
-    /// 0 cycles
-    pub fn set_break_command(&mut self) {
-        self.ps |= 0b0001_0000;
-    }
-
-    /// 0 cycles
-    pub fn set_overflow(&mut self) {
-        self.ps |= 0b0100_0000;
-    }
-
-    /// 0 cycles
-    pub fn set_negative(&mut self) {
-        self.ps |= 0b1000_0000;
-    }
-
-    /// 0 cycles
-    pub fn unset_carry(&mut self) {
-        self.ps &= 0b1111_1110;
-    }
-
-    /// 0 cycles
-    pub fn unset_zero(&mut self) {
-        self.ps &= 0b1111_1101;
-    }
-
-    /// 0 cycles
-    pub fn unset_interrupt_disable(&mut self) {
-        self.ps &= 0b1111_1011;
-    }
-
-    /// 0 cycles
-    pub fn unset_decimal_mode(&mut self) {
-        self.ps &= 0b1111_0111;
-    }
-
-    /// 0 cycles
-    pub fn unset_break_command(&mut self) {
-        self.ps &= 0b1110_1111;
-    }
-
-    /// 0 cycles
-    pub fn unset_overflow(&mut self) {
-        self.ps &= 0b1011_1111;
-    }
-
-    /// 0 cycles
-    pub fn unset_negative(&mut self) {
-        self.ps &= 0b0111_1111;
-    }
-}
-
-/// CPU debugging utility functions (cycle count unaffected)
+/// CPU debugging utility functions (No CPU cycles)
 impl CPU6502 {
     /// Allows user to switch on or off cpu debugging messages.
     /// 
@@ -1273,7 +1140,7 @@ impl std::fmt::Display for CPU6502 {
             self.pc,
             self.cpu_mem[self.pc as usize],
             ((self.cpu_mem[(self.pc.wrapping_add(1)) as usize] as CPUWord) << 8) + self.cpu_mem[self.pc as usize] as CPUWord,
-            self.ps,
+            self.ps.to_inner(),
             self.sp,
             self.ac,
             self.rx,

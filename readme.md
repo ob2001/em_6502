@@ -1,5 +1,5 @@
 # Description
-Side project for fun: Emulating a 6502 CPU in Rust.
+Side project for fun: Emulating a 6502 CPU in Rust. Inspired by [this video](https://www.youtube.com/watch?v=qJgsuQoy9bc).
 
 Not (currently) implementing any of the "illegal" opcodes, but we'll see.
 

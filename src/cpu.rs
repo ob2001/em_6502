@@ -70,40 +70,28 @@ pub enum CPUInstruction {
 pub enum CPUAddrMode {
     /// (1 or 0?) cycles
     IMP,
-
     /// (1 or 0?) cycles
     ACC,
-
     /// 1 cycle
     IMM,
-
     /// 2 cycles
     ZPG,
-
     /// 3 cycles
     ZPX,
-
     /// 3 cycles
     ZPY,
-
     /// (1?) cycle
     REL,
-
     /// 3 cycles
     ABS,
-
     /// 3 ?+ 1 cycles
     ABX,
-
     /// 3 ?+ 1 cycles
     ABY,
-
     /// (?) cycles
     IND,
-
     /// 5 cycles
     IDX,
-
     /// 4 ?+ 1 cycles
     IDY,
 }
@@ -125,8 +113,8 @@ pub struct CPU6502 {
     /// Points to CPU memory range 0x0100 - 0x01ff which is used as the CPU's stack.
     /// The location of the stack is fixed and cannot be moved.
     /// 
-    /// Pushin bytes to the stack causes the stack pointer to be decremented. Conversely
-    /// popping bytes causes it to be incremented.
+    /// Pushing bytes to the stack causes the stack pointer to be decremented. Conversely
+    /// pulling (popping) bytes causes it to be incremented.
     /// 
     /// The CPU does not detect if the stack is overflowed by excessive pushing or
     /// popping operations and will most likely result in the error crashing.
@@ -146,7 +134,7 @@ pub struct CPU6502 {
     /// 
     /// The 8 bit index register is most commonly used to hold counters or offsets for
     /// accessing memory. The value of the X register can be loaded and saved in memory,
-    /// compared with values held in memory or incremented and decremented.
+    /// compared with values held in memory, or incremented and decremented.
     /// 
     /// The X register has one special function. It can be used to get a copy of the stack
     /// pointer or change its value.
@@ -155,17 +143,26 @@ pub struct CPU6502 {
     /// Index register Y
     /// 
     /// The Y register is similar to the X register in that it is available for holding counter
-    /// or offsets memory access and supports the same set of memory load, save and compare
+    /// or offsets memory access and supports the same set of memory load, save, and compare
     /// operations as well as increments and decrements. It has no special functions.
     ry: CPUByte,
 
     /// Processor status (bitfield):
-    /// - Bit 0: Carry flag: The carry flag is set if the last operation caused an overflow from bit 7 of the result or an underflow from bit 0. This condition is set during arithmetic, comparison and during logical shifts. It can be explicitly set using the "Set Carry Flag" (SEC) instruction and cleared with "Clear Carry Flag" (CLC).
+    /// - Bit 0: Carry flag: The carry flag is set if the last operation caused an overflow from
+    /// bit 7 of the result or an underflow from bit 0. This condition is set during arithmetic,
+    /// comparison, and during logical shifts. It can be explicitly set using the "Set Carry Flag"
+    /// (SEC) instruction and cleared with "Clear Carry Flag" (CLC).
     /// - Bit 1: Zero flag: The zero flag is set if the result of the last operation was zero.
-    /// - Bit 2: Interrupt disable: The interrupt disable flag is set if the program has executed a "Set Interrupt Disable" (SEI) instruction. While this flag is set the processor will not respond to interrupts from devices until it is cleared by a "Clear Interrupt Disable" (CLI) instruction.
-    /// - Bit 3: Decimal mode: While the decimal mode flag is set the processor will obey the rules of Binary Coded Decimal (BCD) arithmetic during addition and subtraction.
-    /// - Bit 4: Break command: The break command bit is set when a BRK instruction has been executed and an interrupt has been generated to process it.
-    /// - Bit 5: Overflow flag: Set during arithmetic operations if the result has yielded an invalid 2's complement result (e.g. adding two positive numbers nd ending up with a negative result). It is determined by looking at the carry between bits 6 and 7 and between bit 7 and the carry flag.
+    /// - Bit 2: Interrupt disable: The interrupt disable flag is set if the program has executed
+    /// a "Set Interrupt Disable" (SEI) instruction. While this flag is set the processor will not
+    /// respond to interrupts from devices until it is cleared by a "Clear Interrupt Disable" (CLI) instruction.
+    /// - Bit 3: Decimal mode: While the decimal mode flag is set the processor will obey the rules
+    /// of Binary Coded Decimal (BCD) arithmetic during addition and subtraction.
+    /// - Bit 4: Break command: The break command bit is set when a BRK instruction has been executed
+    /// and an interrupt has been generated to process it.
+    /// - Bit 5: Overflow flag: Set during arithmetic operations if the result has yielded an invalid
+    /// 2's complement result (e.g. adding two positive numbers and ending up with a negative result).
+    /// It is determined by looking at the carry between bits 6 and 7 and between bit 7 and the carry flag.
     /// - Bit 6: Negative flag: Set if the result of the last operation had bit 7 set to one.
     ps: BitField,
 
@@ -175,9 +172,9 @@ pub struct CPU6502 {
     /// Contains all memory the CPU can access, ordered as CPU expects:
     /// - Page 0 (0x0000 - 0x00FF): Zero page memory
     /// - Page 1 (0x0100 - 0x01FF): Stack memory
-    /// - 0xFFFA - 0xFFFB: Index (abs) of non-maskable interrupt handler
-    /// - 0xFFFC - 0xFFFD: Index (abs) of power on reset location
-    /// - 0xFFFE - 0xFFFF: Index (abs) of BRK/interrupt request handler
+    /// - 0xFFFA/0xFFFB: Location of non-maskable interrupt handler
+    /// - 0xFFFC/0xFFFD: Location of power on/reset location
+    /// - 0xFFFE/0xFFFF: Location of BRK/interrupt request handler
     cpu_mem: [CPUByte; CPU_MEMSIZE],
 
     dbg: bool,
@@ -190,7 +187,7 @@ impl CPU6502 {
     pub fn new() -> Self {
         CPU6502 { 
             pc: 0xFFFC,
-            sp: 0,
+            sp: 255,
             ac: 0,
             rx: 0,
             ry: 0,
@@ -217,7 +214,7 @@ impl CPU6502 {
     /// Put the CPU in the standard power-on/reset state
     pub fn reset(&mut self) {
         self.pc = 0xFFFC;
-        self.sp = 0;
+        self.sp = 255;
         self.ac = 0;
         self.rx = 0;
         self.ry = 0;
@@ -231,11 +228,12 @@ impl CPU6502 {
     /// Reset the CPU and set the program counter to the address stored in the power-on index memory location
     pub fn power_on(&mut self) {
         self.reset();
+        self.clear_debug_msg();
+
         self.push_debug_msg("power_on".to_string());
         self.debug_imm("reset (0 cycles)".to_string());
 
         self.pc = self.fetch_next_word();
-
         self.debug_imm(format!("set_pc ({:#06X})", self.pc));
 
         self.clear_debug_msg();
@@ -257,6 +255,7 @@ impl CPU6502 {
     /// Run without resetting CPU to power-on state
     pub fn run_as_is(&mut self, debugging: bool) {
         self.dbg = debugging;
+        self.clear_debug_msg();
 
         self.push_debug_msg("run_as_is".to_string());
         while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) { };
@@ -266,6 +265,10 @@ impl CPU6502 {
     }
 
     /// 1 cycle
+    /// 
+    /// Fetch the CPUByte stored in the memory location pointed to by pc.
+    /// 
+    /// Increments pc.
     pub fn fetch_next_byte(&mut self) -> CPUByte {
         let ret = self.cpu_mem[self.pc as usize];
 
@@ -279,6 +282,11 @@ impl CPU6502 {
     }
 
     /// 2 cycles
+    /// 
+    /// Fetch 2 CPUBytes starting at the memory location pointed to by pc
+    /// and return them as a CPUWord (little endian).
+    /// 
+    /// Increments pc twice.
     pub fn fetch_next_word(&mut self) -> CPUWord {
         let low = self.cpu_mem[self.pc as usize];
 
@@ -299,6 +307,10 @@ impl CPU6502 {
     }
 
     /// 1 cycle
+    /// 
+    /// Fetches the CPUByte stored in the memory location at the provided address.
+    /// 
+    /// Does not affect pc.
     pub fn fetch_byte_at(&mut self, addr: CPUWord) -> CPUByte {
         self.debug_imm(format!("fetch_byte_at ({:#06X})", addr));
         
@@ -310,6 +322,11 @@ impl CPU6502 {
     }
 
     /// 2 cycles
+    /// 
+    /// Fetch 2 CPUBytes starting at the memory location at the provided address
+    /// and return them as a CPUWord (little endian).
+    /// 
+    /// Does not affect pc.
     pub fn fetch_word_at(&mut self, addr: CPUWord) -> CPUWord {
         self.push_debug_msg(format!("fetch_word_at ({:#06X})", addr));
         self.debug();
@@ -324,6 +341,10 @@ impl CPU6502 {
     }
 
     /// 1 cycle
+    /// 
+    /// Add two CPUBytes, wrapping if necessary.
+    /// 
+    /// Does not affect processor status flags.
     pub fn add_bytes_wrap(&mut self, a: CPUByte, b: CPUByte) -> CPUByte {
         self.debug_imm("add_bytes_wrap".to_string());
 
@@ -335,6 +356,10 @@ impl CPU6502 {
     }
 
     /// 1 cycle
+    /// 
+    /// Add two CPUWords, wrapping if necessary.
+    /// 
+    /// Does not affect processor status flags
     pub fn add_words_wrap(&mut self, a: CPUWord, b: CPUWord) -> CPUWord {
         self.debug_imm("add_words_wrap".to_string());
 
@@ -346,6 +371,8 @@ impl CPU6502 {
     }
 
     /// 1 cycle
+    ///
+    /// Use Immediate addressing mode to obtain argument for CPU instruction
     pub fn imm(&mut self) -> CPUByte {
         self.push_debug_msg("get_imm".to_string());
         
@@ -358,6 +385,8 @@ impl CPU6502 {
     }
 
     /// 2 cycles
+    /// 
+    /// Use Zero Page addressing mode to obtain argument for CPU instruction
     pub fn zpg(&mut self) -> CPUByte {
         self.push_debug_msg("get_zpg".to_string());
         
@@ -371,6 +400,8 @@ impl CPU6502 {
     }
 
     /// 3 cycles
+    /// 
+    /// Use Zero Page,X mode to obtain argument for CPU instruction
     pub fn zpx(&mut self) -> CPUByte {
         self.push_debug_msg("get_zpx".to_string());
         
@@ -385,6 +416,8 @@ impl CPU6502 {
     }
 
     /// 3 cycles
+    /// 
+    /// Use Zero Page,Y addressing mode to obtain argument for CPU instruction
     pub fn zpy(&mut self) -> CPUByte {
         self.push_debug_msg("get_zpy".to_string());
         
@@ -399,6 +432,8 @@ impl CPU6502 {
     }
 
     /// 3 cycles
+    /// 
+    /// Use Absolute addressing mode to obtain argument for CPU instruction
     pub fn abs(&mut self) -> CPUByte {
         self.push_debug_msg("get_abs".to_string());
         
@@ -412,6 +447,8 @@ impl CPU6502 {
     }
 
     /// 3 ?+ 1 cycles
+    /// 
+    /// Use Absolute,X addressing mode to obtain argument for CPU instruction
     pub fn abx(&mut self) -> CPUByte {
         self.push_debug_msg("get_abx".to_string());
         
@@ -431,6 +468,8 @@ impl CPU6502 {
     }
 
     /// 3 ?+ 1 cycles
+    /// 
+    /// Use Absolute,Y addressing mode to obtain argument for CPU instruction
     pub fn aby(&mut self) -> CPUByte {
         self.push_debug_msg("get_aby".to_string());
         
@@ -450,6 +489,8 @@ impl CPU6502 {
     }
 
     /// 5 cycles
+    /// 
+    /// Use Pre-Indexed Indirect addressing mode to obtain argument for CPU instruction
     pub fn idx(&mut self) -> CPUByte {
         self.push_debug_msg("get_inx".to_string());
         
@@ -465,6 +506,8 @@ impl CPU6502 {
     }
 
     /// 4 ?+ 1 cycles
+    /// 
+    /// Use Post-Indexed addressing mode to obtain argument for CPU instruction
     pub fn idy(&mut self) -> CPUByte {
         self.push_debug_msg("get_iny".to_string());
         
@@ -485,6 +528,10 @@ impl CPU6502 {
     }
 
     /// 2 cycles
+    /// 
+    /// Push the value of the passed CPUByte to the stack at the memory location currently indicated by sp.
+    /// 
+    /// Decrements sp.
     pub fn push_byte(&mut self, val: CPUByte) {       
         self.push_debug_msg("push_byte".to_string());
 
@@ -493,7 +540,7 @@ impl CPU6502 {
         self.debug_imm(format!("push val ({:#04x})", val));
 
         // Don't need to check is stack overflows. Will likely crash process, this is correct behaviour.
-        self.sp = self.sp.wrapping_add(1);
+        self.sp = self.sp.wrapping_sub(1);
         self.cycles += 1;
         self.debug_imm("inc sp".to_string());
 
@@ -501,11 +548,15 @@ impl CPU6502 {
     }
 
     /// 3 cycles
+    /// 
+    /// Pulls (pops) the last-pushed CPUByte value from the stack at the memory location indicated by sp (- 1).
+    /// 
+    /// Increments sp.
     pub fn pull_byte(&mut self) -> CPUByte {
         // Don't need to check if stack underflows. Will likely crash process, this is correct behaviour.
         self.push_debug_msg("pull_byte".to_string());
 
-        self.sp = self.sp.wrapping_sub(1);
+        self.sp = self.sp.wrapping_add(1);
         self.cycles += 1;
         self.debug_imm("dec sp".to_string());
 
@@ -519,6 +570,10 @@ impl CPU6502 {
     }
 
     /// 2 cycles
+    /// 
+    /// Push the value of the passed CPUWord to the stack starting at the memory location currently indicated by sp.
+    /// 
+    /// Decrements sp twice.
     pub fn push_word(&mut self, val: CPUWord) {
         let [high, low] = val.to_be_bytes();
         
@@ -538,6 +593,11 @@ impl CPU6502 {
     }
 
     /// 3 cycles
+    /// 
+    /// Pulls (pops) the two last-pushed CPUByte values from the stack starting 
+    /// at the memory location indicated by sp (- 1).
+    /// 
+    /// Increments sp twice.
     pub fn pull_word(&mut self) -> CPUWord {        
         self.push_debug_msg("pull_word".to_string());
         
@@ -564,6 +624,8 @@ impl CPU6502 {
     }
 
     /// 0 cycles
+    /// 
+    /// Updates the zero flag based on the CPUByte value passed.
     pub fn update_z(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::Z, val == 0);
 
@@ -571,6 +633,8 @@ impl CPU6502 {
     }
 
     /// 0 cycles
+    /// 
+    /// Updates the negative flag based on the CPUByte value passed.
     pub fn update_n(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
@@ -578,26 +642,34 @@ impl CPU6502 {
     }
 
     /// 0 cycles
+    /// 
+    /// Sets carry bit to boolean value passed.
     pub fn update_c_if(&mut self, cond: bool) {
         self.ps.set_bit(BitMasks::C, cond);
         self.debug_imm(format!("carry_if ({})", cond));
     }
 
     /// 0 cycles
-    pub fn update_v(&mut self, init_val: CPUByte, add_val: CPUByte, final_val: CPUByte) {
-        let init_val_is_negative = init_val & 0b1000_0000 != 0;
-        let add_val_is_negative = add_val & 0b1000_0000 != 0;
-        let final_val_is_negative = final_val & 0b1000_0000 != 0;
+    /// 
+    /// Updates the overflow flag based on the two input CPUByte values and the
+    /// output CPUByte value. (Indicates an incorrect 2's complement result from an
+    /// arithmetic operation).
+    pub fn update_v(&mut self, val1: CPUByte, val2: CPUByte, out: CPUByte) {
+        let init_val_is_negative = val1 & 0b1000_0000 != 0;
+        let add_val_is_negative = val2 & 0b1000_0000 != 0;
+        let final_val_is_negative = out & 0b1000_0000 != 0;
 
         self.ps.set_bit(BitMasks::V, (init_val_is_negative && add_val_is_negative && !final_val_is_negative) || (!init_val_is_negative && !add_val_is_negative && final_val_is_negative));
 
-        self.debug_imm(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", init_val, add_val, final_val))
+        self.debug_imm(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", val1, val2, out))
     }
 }
 
 /// CPU instruction decoding and execution functions
 impl CPU6502 {
     /// 1 cycle
+    /// 
+    /// Fetch the next CPUByte and decode it as the next CPU instruction.
     pub fn decode_next_ins(&mut self) -> CPUInstruction {
         use CPUInstruction::*;
         use CPUAddrMode::*;
@@ -772,7 +844,10 @@ impl CPU6502 {
         ret
     }
 
-    /// Takes as many cycles as the instruction being executed
+    /// Takes as many cycles as the instruction being executed.
+    /// 
+    /// Matches on the next CPUByte into its Instruction code, then executes
+    /// the corresponding instruction.
     pub fn execute_next_ins(&mut self) -> CPUInstruction {
         use CPUInstruction::*;
         use CPUAddrMode::*;
@@ -836,6 +911,8 @@ impl CPU6502 {
 /// CPU instruction implementation functions
 impl CPU6502 {
     /// 1 - 5 cycles
+    /// 
+    /// Implements functionality of the ADC Instruction.
     pub fn adc(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
@@ -865,6 +942,8 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
+    /// 
+    /// Implements functionality of the AND Instruction
     pub fn and(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
@@ -889,6 +968,8 @@ impl CPU6502 {
     }
 
     /// 1 - 6 cycles
+    /// 
+    /// Implements functionality of the ASL Instruction
     pub fn asl(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
@@ -926,7 +1007,7 @@ impl CPU6502 {
 
     /// 1 - 4 cycles
     /// 
-    /// Used for instructions:
+    /// Implements functionality for listed Instructions:
     /// - BCC
     /// - BCS
     /// - BEQ
@@ -954,6 +1035,9 @@ impl CPU6502 {
         }
     }
 
+    /// 6 cycles
+    /// 
+    /// Implements functionality of the BRK Instruction.
     pub fn brk(&mut self) {
         self.push_debug_msg("BRK".to_string());
 
@@ -976,6 +1060,8 @@ impl CPU6502 {
     }
 
     /// 2 - 3 cycles
+    /// 
+    /// Implements functionality of the BIT Instruction
     pub fn bit(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
@@ -998,6 +1084,8 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
+    /// 
+    /// Implements functionality of the LDA Instruction
     pub fn lda(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
 
@@ -1033,7 +1121,7 @@ impl CPU6502 {
         self.dbg = dbg;
     }
 
-    /// Print current state of CPU with a header message detailing the CPU execution stack
+    /// Print current state of CPU with a header message detailing the CPU execution stack.
     pub fn debug(&self) {
         if self.dbg {
             print!("*** ");
@@ -1045,49 +1133,49 @@ impl CPU6502 {
         }
     }
     
-    /// Print the name and return value of a CPU function returning a CPUByte
+    /// Print the name and return value of a CPU function returning a CPUByte.
     pub fn debug_ret_byte(&self, fname: &'static str, ret_val: CPUByte) {
         if self.dbg {
             println!("-> {}: {:#04X}\n", fname, ret_val);
         }
     }
 
-    /// Print the name and return value of a CPU function returning a CPUWord
+    /// Print the name and return value of a CPU function returning a CPUWord.
     pub fn debug_ret_word(&self, fname: &'static str, ret_val: CPUWord) {
         if self.dbg {
             println!("-> {}: {:#06X}\n", fname, ret_val);
         }
     }
 
-    /// Print the instruction returned by decode_next_ins
+    /// Print the instruction returned by decode_next_ins.
     pub fn debug_ret_ins(&self, ret_ins: CPUInstruction) {
         if self.dbg {
             println!("-> decode_next_ins: {:?}\n", ret_ins);
         }
     }
 
-    /// Reset the debug_msg vector to empty
+    /// Reset the debug_msg vector to be empty.
     pub fn clear_debug_msg(&mut self) {
         if self.dbg {
             self.debug_msg = vec![];
         }
     }
 
-    /// Push `msg` onto `self.debug_msg`
+    /// Push `msg` onto `self.debug_msg`.
     pub fn push_debug_msg(&mut self, msg: String) {
         if self.dbg {
             self.debug_msg.push(msg);
         }
     }
 
-    /// Pop and discard most recently added `msg` from `self.debug_msg`
+    /// Pop and discard most recently added `msg` from `self.debug_msg`.
     pub fn restore_debug_msg(&mut self) {
         if self.dbg {
             let _ = self.debug_msg.pop();
         }
     }
 
-    /// Allow for quick, one-time debug prints with a custom message suffix
+    /// Allow for quick, one-time debug prints with a custom message suffix.
     pub fn debug_imm(&mut self, msg: String) {
         if self.dbg {
             self.push_debug_msg(msg);

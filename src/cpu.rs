@@ -29,7 +29,7 @@ pub enum CPUInstruction {
     DEY(CPUAddrMode),
     EOR(CPUAddrMode),
 
-    /// Not part of cpu spec. Added to halt execution for testing
+    /// Not part of CPU spec. Added to halt execution for testing
     HLT(CPUAddrMode),
 
     INC(CPUAddrMode),
@@ -122,7 +122,7 @@ pub struct CPU6502 {
 
     /// Stack pointer
     /// 
-    /// Points to cpu memory range 0x0100 - 0x01ff which is used as the cpu's stack.
+    /// Points to CPU memory range 0x0100 - 0x01ff which is used as the CPU's stack.
     /// The location of the stack is fixed and cannot be moved.
     /// 
     /// Pushin bytes to the stack causes the stack pointer to be decremented. Conversely
@@ -169,10 +169,10 @@ pub struct CPU6502 {
     /// - Bit 6: Negative flag: Set if the result of the last operation had bit 7 set to one.
     ps: BitField,
 
-    /// Counter incremented to emulate cpu clock cycles
+    /// Counter incremented to emulate CPU clock cycles
     cycles: usize,
 
-    /// Contains all memory the cpu can access, ordered as cpu expects:
+    /// Contains all memory the CPU can access, ordered as CPU expects:
     /// - Page 0 (0x0000 - 0x00FF): Zero page memory
     /// - Page 1 (0x0100 - 0x01FF): Stack memory
     /// - 0xFFFA - 0xFFFB: Index (abs) of non-maskable interrupt handler
@@ -209,12 +209,12 @@ impl CPU6502 {
         cpu
     }
 
-    /// Set the contents of the cpu memory to `mem`
+    /// Set the contents of the CPU memory to `mem`
     pub fn flash_mem(&mut self, mem: [CPUByte; CPU_MEMSIZE]) {
         self.cpu_mem = mem;
     }
 
-    /// Put the cpu in the standard power-on/reset state
+    /// Put the CPU in the standard power-on/reset state
     pub fn reset(&mut self) {
         self.pc = 0xFFFC;
         self.sp = 0;
@@ -228,7 +228,7 @@ impl CPU6502 {
 
 /// CPU internal runtime functions
 impl CPU6502 {
-    /// Reset the cpu and set the program counter to the address stored in the power-on index memory location
+    /// Reset the CPU and set the program counter to the address stored in the power-on index memory location
     pub fn power_on(&mut self) {
         self.reset();
         self.push_debug_msg("power_on".to_string());
@@ -241,7 +241,7 @@ impl CPU6502 {
         self.clear_debug_msg();
     }
 
-    /// Reset the cpu to power-on state before starting to run
+    /// Reset the CPU to power-on state before starting to run
     pub fn power_on_and_run(&mut self, debugging: bool) {
         self.dbg = debugging;
 
@@ -254,7 +254,7 @@ impl CPU6502 {
         self.debug_imm("!!!CPU halted!!!".to_string());
     }
 
-    /// Run without resetting cpu to power-on state
+    /// Run without resetting CPU to power-on state
     pub fn run_as_is(&mut self, debugging: bool) {
         self.dbg = debugging;
 
@@ -1026,14 +1026,14 @@ impl CPU6502 {
 
 /// CPU runtime debugging utility functions (No CPU cycles)
 impl CPU6502 {
-    /// Allows user to switch on or off cpu debugging messages.
+    /// Allows user to switch on or off CPU debugging messages.
     /// 
-    /// *(Beware of unintended side effects if modifying value while cpu is running.)*
+    /// *(Beware of unintended side effects if modifying value while CPU is running.)*
     pub fn set_dbg_mode(&mut self, dbg: bool) {
         self.dbg = dbg;
     }
 
-    /// Print current state of cpu with a header message detailing the cpu execution stack
+    /// Print current state of CPU with a header message detailing the CPU execution stack
     pub fn debug(&self) {
         if self.dbg {
             print!("*** ");
@@ -1045,14 +1045,14 @@ impl CPU6502 {
         }
     }
     
-    /// Print the name and return value of a cpu function returning a CPUByte
+    /// Print the name and return value of a CPU function returning a CPUByte
     pub fn debug_ret_byte(&self, fname: &'static str, ret_val: CPUByte) {
         if self.dbg {
             println!("-> {}: {:#04X}\n", fname, ret_val);
         }
     }
 
-    /// Print the name and return value of a cpu function returning a CPUWord
+    /// Print the name and return value of a CPU function returning a CPUWord
     pub fn debug_ret_word(&self, fname: &'static str, ret_val: CPUWord) {
         if self.dbg {
             println!("-> {}: {:#06X}\n", fname, ret_val);

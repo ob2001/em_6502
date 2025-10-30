@@ -1,19 +1,20 @@
 use crate::prelude::*;
 
-pub type MemResult = Result<[CPUByte; CPU_MEMSIZE], &'static str>;
+pub type Mem = [CPUByte; CPU_MEMSIZE];
+pub type MemResult = Result<Mem, &'static str>;
 
 /// Create new cpu memory with all bytes set to the provided value
-pub fn new_all(b: CPUByte) -> [CPUByte; CPU_MEMSIZE] {
+pub fn new_all(b: CPUByte) -> Mem {
     [b; CPU_MEMSIZE]
 }
 
 /// Create new cpu memory with all NOP instructions
-pub fn new_nops() -> [CPUByte; CPU_MEMSIZE] {
+pub fn new_nops() -> Mem {
     new_all(0x00)
 }
 
 /// Create new cpu memory with all (illegal) HLT instructions
-pub fn new_hlts() -> [CPUByte; CPU_MEMSIZE] {
+pub fn new_hlts() -> Mem {
     new_all(0xFF)
 }
 

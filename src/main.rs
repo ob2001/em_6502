@@ -8,9 +8,9 @@ fn main() {
     let mut cpu = CPU6502::new_with_mem(mem);
     cpu.power_on_and_run(true);
 
-    // Print cpu final state and dump memory
-    if true {
-        println!("*** Post execution cpu and mem dump ***");
+    // Print CPU and memory postmortem
+    if false {
+        println!("vvv CPU and Memory Postmortem vvv");
         println!("{:?}", cpu);
     }
 }

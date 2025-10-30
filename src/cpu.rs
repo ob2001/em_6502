@@ -184,7 +184,7 @@ pub struct CPU6502 {
     debug_msg: Vec<String>,
 }
 
-/// CPU creation/setup, do not interact with runtime (No CPU cycles)
+/// CPU creation/setup functions, do not interact with runtime (No CPU cycles)
 impl CPU6502 {
     /// Create a new CPU6502 with registers set to defaults and zeroed memory
     pub fn new() -> Self {
@@ -234,9 +234,9 @@ impl CPU6502 {
         self.push_debug_msg("power_on".to_string());
         self.debug_imm("reset (0 cycles)".to_string());
 
-        self.pc = self.get_next_word();
+        self.pc = self.fetch_next_word();
 
-        self.debug_imm("ret -> pc".to_string());
+        self.debug_imm(format!("set_pc ({:#06X})", self.pc));
 
         self.clear_debug_msg();
     }
@@ -251,7 +251,7 @@ impl CPU6502 {
         while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) { };
         self.restore_debug_msg();
 
-        self.debug_imm("cpu halted".to_string());
+        self.debug_imm("!!!CPU halted!!!".to_string());
     }
 
     /// Run without resetting cpu to power-on state
@@ -262,87 +262,62 @@ impl CPU6502 {
         while self.execute_next_ins() != CPUInstruction::HLT(CPUAddrMode::IMP) { };
         self.restore_debug_msg();
 
-        self.debug_imm("cpu halted".to_string());
+        self.debug_imm("!!!CPU halted!!!".to_string());
     }
 
     /// 1 cycle
-    pub fn get_next_byte(&mut self) -> CPUByte {
-        self.debug_imm("get_next_byte".to_string());
-
+    pub fn fetch_next_byte(&mut self) -> CPUByte {
         let ret = self.cpu_mem[self.pc as usize];
+
+        self.debug_imm(format!("fetch_next_byte ({:#04X})", ret));
         self.cycles += 1;
         self.pc += 1;
 
-        self.debug_ret_byte("get_next_byte", ret);
+        self.debug_ret_byte("fetch_next_byte", ret);
         
         ret
     }
 
     /// 2 cycles
-    pub fn get_next_word(&mut self) -> CPUWord {
-        self.debug_imm("get_next_word => low".to_string());
-        
+    pub fn fetch_next_word(&mut self) -> CPUWord {
         let low = self.cpu_mem[self.pc as usize];
+
+        self.debug_imm(format!("fetch_next_word => low ({:#04X})", low));
         self.cycles += 1;
         self.pc += 1;
 
-        self.debug_imm("get_next_word => high".to_string());
-        
         let high = self.cpu_mem[self.pc as usize];
+        
+        self.debug_imm(format!("fetch_next_word => high ({:#04X})", high));
         self.cycles += 1;
         self.pc += 1;
         
-        let ret = (high as u16) << 8 + low as u16;
-        self.debug_ret_word("get_next_word", ret);
+        let ret = (high as CPUWord) << 8 + low as CPUWord;
+        self.debug_ret_word("fetch_next_word", ret);
         
         ret
     }
 
     /// 1 cycle
-    pub fn get_byte_zp(&mut self, addr: CPUByte) -> CPUByte {
-        self.debug_imm("get_byte_zp".to_string());
-        
-        let ret = self.cpu_mem[(0x0000 + addr as CPUWord) as usize];
-        self.cycles += 1;
-        self.debug_ret_byte("get_byte_zp", ret);
-        
-        ret
-    }
-
-    /// 1 cycle
-    pub fn get_byte_abs(&mut self, addr: CPUWord) -> CPUByte {
-        self.debug_imm("get_byte_abs".to_string());
+    pub fn fetch_byte_at(&mut self, addr: CPUWord) -> CPUByte {
+        self.debug_imm(format!("fetch_byte_at ({:#06X})", addr));
         
         self.cycles += 1;
         let  ret = self.cpu_mem[addr as usize];
-        self.debug_ret_byte("get_byte_abs", ret);
+        self.debug_ret_byte("fetch_byte_at", ret);
         
         ret
     }
 
     /// 2 cycles
-    pub fn get_word_zp(&mut self, addr: CPUByte) -> CPUWord {
-        self.push_debug_msg("get_word_zp".to_string());
-        self.debug();
-        
-        let low = self.get_byte_zp(addr);
-        let high = self.get_byte_zp(addr + 1);
-        let ret = ((high as u16) << 8) + low as u16;
-        self.debug_ret_word("get_word_zp", ret);
-        
-        self.restore_debug_msg();
-        ret
-    }
-
-    /// 2 cycles
-    pub fn get_word_abs(&mut self, addr: CPUWord) -> CPUWord {
-        self.push_debug_msg("get_word_abs".to_string());
+    pub fn fetch_word_at(&mut self, addr: CPUWord) -> CPUWord {
+        self.push_debug_msg(format!("fetch_word_at ({:#06X})", addr));
         self.debug();
 
-        let low = self.get_byte_abs(addr);
-        let high = self.get_byte_abs(addr + 1);
-        let ret = ((high as u16) << 8) + low as u16;
-        self.debug_ret_word("get_word_abs", ret);
+        let low = self.fetch_byte_at(addr);
+        let high = self.fetch_byte_at(addr + 1);
+        let ret = ((high as CPUWord) << 8).wrapping_add(low as CPUWord);
+        self.debug_ret_word("fetch_word_at", ret);
 
         self.restore_debug_msg();
         ret
@@ -374,7 +349,7 @@ impl CPU6502 {
     pub fn imm(&mut self) -> CPUByte {
         self.push_debug_msg("get_imm".to_string());
         
-        let ret = self.get_next_byte();
+        let ret = self.fetch_next_byte();
         self.debug();
         self.debug_ret_byte("get_imm", ret);
         
@@ -386,8 +361,8 @@ impl CPU6502 {
     pub fn zpg(&mut self) -> CPUByte {
         self.push_debug_msg("get_zpg".to_string());
         
-        let addr = self.get_next_byte();
-        let ret = self.get_byte_zp(addr);
+        let addr = self.fetch_next_byte();
+        let ret = self.fetch_byte_at(addr as CPUWord);
         self.debug();
         self.debug_ret_byte("get_zpg", ret);
         
@@ -399,9 +374,9 @@ impl CPU6502 {
     pub fn zpx(&mut self) -> CPUByte {
         self.push_debug_msg("get_zpx".to_string());
         
-        let addr = self.get_next_byte();
+        let addr = self.fetch_next_byte();
         let addr = self.add_bytes_wrap(addr, self.rx);
-        let ret = self.get_byte_zp(addr);
+        let ret = self.fetch_byte_at(addr as CPUWord);
         self.debug();
         self.debug_ret_byte("get_zpx", ret);
         
@@ -413,9 +388,9 @@ impl CPU6502 {
     pub fn zpy(&mut self) -> CPUByte {
         self.push_debug_msg("get_zpy".to_string());
         
-        let addr = self.get_next_byte();
+        let addr = self.fetch_next_byte();
         let addr = self.add_bytes_wrap(addr, self.ry);
-        let ret = self.get_byte_zp(addr);
+        let ret = self.fetch_byte_at(addr as CPUWord);
         self.debug();
         self.debug_ret_byte("get_zpy", ret);
         
@@ -427,8 +402,8 @@ impl CPU6502 {
     pub fn abs(&mut self) -> CPUByte {
         self.push_debug_msg("get_abs".to_string());
         
-        let addr = self.get_next_word();
-        let ret = self.get_byte_abs(addr);
+        let addr = self.fetch_next_word();
+        let ret = self.fetch_byte_at(addr);
         self.debug();
         self.debug_ret_byte("get_abs", ret);
         
@@ -440,14 +415,14 @@ impl CPU6502 {
     pub fn abx(&mut self) -> CPUByte {
         self.push_debug_msg("get_abx".to_string());
         
-        let tmp_addr = self.get_next_word();
+        let tmp_addr = self.fetch_next_word();
         let addr = tmp_addr + self.rx as CPUWord;
         
         if addr / 256 > tmp_addr / 256 {
             self.cycles += 1;
         }
         
-        let ret = self.get_byte_abs(addr);
+        let ret = self.fetch_byte_at(addr);
         self.debug();
         self.debug_ret_byte("get_abx", ret);
         
@@ -459,14 +434,14 @@ impl CPU6502 {
     pub fn aby(&mut self) -> CPUByte {
         self.push_debug_msg("get_aby".to_string());
         
-        let tmp_addr = self.get_next_word();
+        let tmp_addr = self.fetch_next_word();
         let addr = tmp_addr + self.ry as CPUWord;
         
         if addr / 256 > tmp_addr / 256 {
             self.cycles += 1;
         }
         
-        let ret = self.get_byte_abs(addr);
+        let ret = self.fetch_byte_at(addr);
         self.debug();
         self.debug_ret_byte("get_aby", ret);
         
@@ -478,10 +453,10 @@ impl CPU6502 {
     pub fn idx(&mut self) -> CPUByte {
         self.push_debug_msg("get_inx".to_string());
         
-        let tmp_addr = self.get_next_byte();
+        let tmp_addr = self.fetch_next_byte();
         let tmp_addr = self.add_bytes_wrap(tmp_addr, self.rx);
-        let addr = self.get_word_zp(tmp_addr);
-        let ret = self.get_byte_abs(addr);
+        let addr = self.fetch_word_at(tmp_addr as CPUWord);
+        let ret = self.fetch_byte_at(addr);
         self.debug();
         self.debug_ret_byte("get_inx", ret);
         
@@ -493,15 +468,15 @@ impl CPU6502 {
     pub fn idy(&mut self) -> CPUByte {
         self.push_debug_msg("get_iny".to_string());
         
-        let tmp_addr = self.get_next_byte();
-        let tmp_addr = self.get_word_zp(tmp_addr);
+        let tmp_addr = self.fetch_next_byte();
+        let tmp_addr = self.fetch_word_at(tmp_addr as CPUWord);
         let addr = tmp_addr + self.ry as CPUWord;
         
         if addr / 256 > tmp_addr / 256 {
             self.cycles += 1;
         }
         
-        let ret = self.get_byte_abs(addr);
+        let ret = self.fetch_byte_at(addr);
         self.debug();
         self.debug_ret_byte("get_iny", ret);
         
@@ -620,7 +595,7 @@ impl CPU6502 {
     }
 }
 
-/// CPU instruction decoding and execution
+/// CPU instruction decoding and execution functions
 impl CPU6502 {
     /// 1 cycle
     pub fn decode_next_ins(&mut self) -> CPUInstruction {
@@ -628,7 +603,9 @@ impl CPU6502 {
         use CPUAddrMode::*;
 
         self.push_debug_msg("decode_next_ins".to_string());
-        let opcode = self.get_next_byte();
+        let opcode = self.fetch_next_byte();
+        self.restore_debug_msg();
+        self.push_debug_msg(format!("decode_next_ins ({:#04X})", opcode));
 
         let ret = match opcode {
             0x00 => BRK(IMP),
@@ -800,7 +777,7 @@ impl CPU6502 {
         use CPUInstruction::*;
         use CPUAddrMode::*;
 
-        self.push_debug_msg("execute_next_command".to_string());
+        self.push_debug_msg("execute_next_ins".to_string());
 
         let ins = self.decode_next_ins();
 
@@ -808,84 +785,36 @@ impl CPU6502 {
             ADC(mode) => self.adc(mode),
             AND(mode) => self.and(mode),
             ASL(mode) => self.asl(mode),
-            // ! todo: add debug information
             BCC(REL) => {
-                self.cycles += 1;
-                if !self.ps.test_bit(BitMasks::C) {
-                    self.cycles += 1;
-                    let orig = self.pc;
-                    self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
-
-                    if self.pc / 256 != orig / 256 {
-                        self.cycles += 2;
-                    }
-                }
+                self.push_debug_msg("BCC".to_string());
+                self.branch(!self.ps.test_bit(BitMasks::C));
+                self.restore_debug_msg();
             },
-            // ! todo: add debug information
             BCS(REL) => {
-                self.cycles += 1;
-                if self.ps.test_bit(BitMasks::C) {
-                    self.cycles += 1;
-                    let orig = self.pc;
-                    self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
-
-                    if self.pc / 256 != orig / 256 {
-                        self.cycles += 2;
-                    }
-                }
+                self.push_debug_msg("BCS".to_string());
+                self.branch(self.ps.test_bit(BitMasks::C));
+                self.restore_debug_msg();
             },
-            // ! todo: add debug information
             BEQ(REL) => {
-                self.cycles += 1;
-                if self.ps.test_bit(BitMasks::Z) {
-                    self.cycles += 1;
-                    let orig = self.pc;
-                    self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
-
-                    if self.pc / 256 != orig / 256 {
-                        self.cycles += 2;
-                    }
-                }
+                self.push_debug_msg("BEQ".to_string());
+                self.branch(self.ps.test_bit(BitMasks::Z));
+                self.restore_debug_msg();
             },
             BIT(mode) => self.bit(mode),
-            // ! todo: add debug information
             BMI(REL) => {
-                self.cycles += 1;
-                if self.ps.test_bit(BitMasks::N) {
-                    self.cycles += 1;
-                    let orig = self.pc;
-                    self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
-
-                    if self.pc / 256 != orig / 256 {
-                        self.cycles += 2;
-                    }
-                }
+                self.push_debug_msg("BMI".to_string());
+                self.branch(self.ps.test_bit(BitMasks::N));
+                self.restore_debug_msg();
             },
-            // ! todo: add debug information
             BNE(REL) => {
-                self.cycles += 1;
-                if !self.ps.test_bit(BitMasks::Z) {
-                    self.cycles += 1;
-                    let orig = self.pc;
-                    self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
-
-                    if self.pc / 256 != orig / 256 {
-                        self.cycles += 2;
-                    }
-                }
+                self.push_debug_msg("BNE".to_string());
+                self.branch(!self.ps.test_bit(BitMasks::Z));
+                self.restore_debug_msg();
             },
-            // ! todo: add debug information
             BPL(REL) => {
-                self.cycles += 1;
-                if !self.ps.test_bit(BitMasks::N) {
-                    self.cycles += 1;
-                    let orig = self.pc;
-                    self.pc = self.pc.wrapping_add_signed((self.get_next_byte() as i8).into());
-
-                    if self.pc / 256 != orig / 256 {
-                        self.cycles += 2;
-                    }
-                }
+                self.push_debug_msg("BPL".to_string());
+                self.branch(!self.ps.test_bit(BitMasks::N));
+                self.restore_debug_msg();
             },
             BRK(IMP) => {
                 self.push_debug_msg("BRK".to_string());
@@ -901,7 +830,7 @@ impl CPU6502 {
                 self.ps.set_bit(BitMasks::B, true);
 
                 self.push_debug_msg("jmp_to_loc_at_irq_vector".to_string());
-                self.pc = self.get_word_abs(0xFFFE);
+                self.pc = self.fetch_word_at(0xFFFE);
                 self.restore_debug_msg();
 
                 self.debug();
@@ -910,7 +839,10 @@ impl CPU6502 {
             // !
             // ! todo: Continue instruction implementation
             // !
-            HLT(IMP) => { self.cycles += 1; self.debug_imm("HLT".to_string())},
+            HLT(IMP) => { 
+                self.debug_imm("HLT".to_string());
+                self.cycles += 1;
+            },
             LDA(mode) => self.lda(mode),
             _ => panic!("Unimplemented instruction: {:?}", ins),
         }
@@ -920,7 +852,7 @@ impl CPU6502 {
     }
 }
 
-/// CPU instruction implementations
+/// CPU instruction implementation functions
 impl CPU6502 {
     /// 1 - 5 cycles
     pub fn adc(&mut self, mode: CPUAddrMode) {
@@ -983,10 +915,10 @@ impl CPU6502 {
 
         let addr = match mode {
             ACC => None,
-            ZPG => Some(0x0000 + self.get_next_byte() as CPUWord),
-            ZPX => Some(0x0000 + self.get_next_byte() as CPUWord),
-            ABS => Some(self.get_next_word()),
-            ABX => Some(self.get_next_word()),
+            ZPG => Some(0x0000 + self.fetch_next_byte() as CPUWord),
+            ZPX => Some(0x0000 + self.fetch_next_byte() as CPUWord),
+            ABS => Some(self.fetch_next_word()),
+            ABX => Some(self.fetch_next_word()),
             _ => panic!("Invalid address mode for ASL"),
         };
 
@@ -1009,6 +941,36 @@ impl CPU6502 {
         };
 
         self.restore_debug_msg();
+    }
+
+    /// 1 - 4 cycles
+    /// 
+    /// Used for instructions:
+    /// - BCC
+    /// - BCS
+    /// - BEQ
+    /// - BMI
+    /// - BNE
+    /// - BPL
+    /// - BRK
+    /// - BVC
+    /// - BVS
+    pub fn branch(&mut self, cond: bool) {
+        self.cycles += 1;
+        self.debug();
+
+        if cond {
+            self.cycles += 1;
+            self.debug_imm("branch_success".to_string());
+
+            let orig = self.pc;
+            self.pc = self.pc.wrapping_add_signed((self.fetch_next_byte() as i8).into());
+
+            if self.pc / 256 != orig / 256 {
+                self.cycles += 2;
+                self.debug_imm("page_crossed".to_string());
+            }
+        }
     }
 
     /// 2 - 3 cycles
@@ -1060,7 +1022,7 @@ impl CPU6502 {
     }
 }
 
-/// CPU debugging utility functions (No CPU cycles)
+/// CPU runtime debugging utility functions (No CPU cycles)
 impl CPU6502 {
     /// Allows user to switch on or off cpu debugging messages.
     /// 
@@ -1135,16 +1097,16 @@ impl CPU6502 {
 
 impl std::fmt::Display for CPU6502 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "cycles: {}\npc: {:#06X}\nnext byte: {:#04X}\nnext word: {:#06X}\nps (NVuBDIZC): {:08b}\nsp: {:#04X}\nac: {:#04X}\nrx: {:#04X}\nry: {:#04X}",
+        write!(f, "cycles: {}\npc: {:#06X}\nps (NVuBDIZC): {:08b}\nsp: {:#04X}\nac: {:#04X}\nrx: {:#04X}\nry: {:#04X}\n--------------------\nmem_byte[pc]: {:#04X}\nmem_word[pc]: {:#06X}\n--------------------",
             self.cycles,
             self.pc,
-            self.cpu_mem[self.pc as usize],
-            ((self.cpu_mem[(self.pc.wrapping_add(1)) as usize] as CPUWord) << 8) + self.cpu_mem[self.pc as usize] as CPUWord,
             self.ps.to_inner(),
             self.sp,
             self.ac,
             self.rx,
-            self.ry
+            self.ry,
+            self.cpu_mem[self.pc as usize],
+            ((self.cpu_mem[(self.pc.wrapping_add(1)) as usize] as CPUWord) << 8) + self.cpu_mem[self.pc as usize] as CPUWord,
         )
     }
 }
@@ -1152,8 +1114,14 @@ impl std::fmt::Display for CPU6502 {
 impl std::fmt::Debug for CPU6502 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}\n", self)?;
-        for byte in self.cpu_mem {
+
+        let print_bytes_per_line = 25;
+        write!(f, "\n{:-^1$}\n", "!!! MEMORY DUMP !!!", print_bytes_per_line * 4 - 1)?;
+        for (i, &byte) in self.cpu_mem.iter().enumerate() {
             write!(f, "{:02X}, ", byte)?;
+            if i != 0 && (i + 1) % print_bytes_per_line == 0 {
+                write!(f, "\n")?;
+            }
         }
 
         std::fmt::Result::Ok(())

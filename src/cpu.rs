@@ -1068,7 +1068,7 @@ impl CPU6502 {
             self.pc = self.pc.wrapping_add_signed((self.fetch_next_byte() as i8).into());
 
             if self.pc / 256 != orig / 256 {
-                self.cycles += 2;
+                self.cycles += 1;
                 self.debug_imm("page_crossed".to_string());
             }
         }

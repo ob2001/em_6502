@@ -564,27 +564,27 @@ impl CPU6502 {
     }
 
     /// 0 cycles
-    pub fn check_zero(&mut self, val: CPUByte) {
+    pub fn update_z(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::Z, val == 0);
 
         self.debug_imm(format!("check_zero ({:#04x})", val))
     }
 
     /// 0 cycles
-    pub fn check_negative(&mut self, val: CPUByte) {
+    pub fn update_n(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
         self.debug_imm(format!("check_negative ({:#04x} / {:#010b})", val, val))
     }
 
     /// 0 cycles
-    pub fn carry_if(&mut self, cond: bool) {
+    pub fn update_c_if(&mut self, cond: bool) {
         self.ps.set_bit(BitMasks::C, cond);
         self.debug_imm(format!("carry_if ({})", cond));
     }
 
     /// 0 cycles
-    pub fn check_overflow(&mut self, init_val: CPUByte, add_val: CPUByte, final_val: CPUByte) {
+    pub fn update_v(&mut self, init_val: CPUByte, add_val: CPUByte, final_val: CPUByte) {
         let init_val_is_negative = init_val & 0b1000_0000 != 0;
         let add_val_is_negative = add_val & 0b1000_0000 != 0;
         let final_val_is_negative = final_val & 0b1000_0000 != 0;
@@ -816,26 +816,7 @@ impl CPU6502 {
                 self.branch(!self.ps.test_bit(BitMasks::N));
                 self.restore_debug_msg();
             },
-            BRK(IMP) => {
-                self.push_debug_msg("BRK".to_string());
-
-                self.push_debug_msg("push_pc".to_string());
-                self.push_word(self.pc);
-                self.restore_debug_msg();
-
-                self.push_debug_msg("push_ps".to_string());
-                self.push_byte(self.ps.to_inner());
-                self.restore_debug_msg();
-                
-                self.ps.set_bit(BitMasks::B, true);
-
-                self.push_debug_msg("jmp_to_loc_at_irq_vector".to_string());
-                self.pc = self.fetch_word_at(0xFFFE);
-                self.restore_debug_msg();
-
-                self.debug();
-                self.restore_debug_msg();
-            },
+            BRK(IMP) => self.brk(),
             // !
             // ! todo: Continue instruction implementation
             // !
@@ -875,10 +856,10 @@ impl CPU6502 {
         
         self.ac += add_val;
         
-        self.check_overflow(init_val, add_val, self.ac);
-        self.carry_if(self.ps.test_bit(BitMasks::V));
-        self.check_negative(self.ac);
-        self.check_zero(self.ac);
+        self.update_v(init_val, add_val, self.ac);
+        self.update_c_if(self.ps.test_bit(BitMasks::V));
+        self.update_n(self.ac);
+        self.update_z(self.ac);
 
         self.restore_debug_msg();
     }
@@ -901,8 +882,8 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for AND"),
         };
 
-        self.check_zero(self.ac);
-        self.check_negative(self.ac);
+        self.update_z(self.ac);
+        self.update_n(self.ac);
 
         self.restore_debug_msg();
     }
@@ -927,13 +908,13 @@ impl CPU6502 {
             Some(a) => self.cpu_mem[a as usize],
         };
 
-        self.carry_if(val & 0b1000_0000 != 0);
+        self.update_c_if(val & 0b1000_0000 != 0);
 
         val <<= 1;
         self.cycles += 1;
 
-        self.check_zero(val);
-        self.check_negative(val);
+        self.update_z(val);
+        self.update_n(val);
 
         match mode {
             ACC => { self.ac = val },
@@ -973,6 +954,27 @@ impl CPU6502 {
         }
     }
 
+    pub fn brk(&mut self) {
+        self.push_debug_msg("BRK".to_string());
+
+        self.push_debug_msg("push_pc".to_string());
+        self.push_word(self.pc);
+        self.restore_debug_msg();
+
+        self.push_debug_msg("push_ps".to_string());
+        self.push_byte(self.ps.to_inner());
+        self.restore_debug_msg();
+        
+        self.ps.set_bit(BitMasks::B, true);
+
+        self.push_debug_msg("jmp_to_loc_at_irq_vector".to_string());
+        self.pc = self.fetch_word_at(0xFFFE);
+        self.restore_debug_msg();
+
+        self.debug();
+        self.restore_debug_msg();
+    }
+
     /// 2 - 3 cycles
     pub fn bit(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
@@ -987,8 +989,8 @@ impl CPU6502 {
 
         self.cycles += 1;
 
-        self.check_zero(self.ac & val);
-        self.check_negative(val);
+        self.update_z(self.ac & val);
+        self.update_n(val);
 
         self.ps.set_bit(BitMasks::V, val & 0b0100_0000 != 0);
 
@@ -1015,8 +1017,8 @@ impl CPU6502 {
 
         self.debug_imm("ret -> ac".to_string());
 
-        self.check_zero(self.ac);
-        self.check_negative(self.ac);
+        self.update_z(self.ac);
+        self.update_n(self.ac);
 
         self.restore_debug_msg();
     }

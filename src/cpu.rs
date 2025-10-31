@@ -238,7 +238,7 @@ impl CPU6502 {
         if let Ok(mem) = mem::new_from_file(mem_file.clone()) {
             Ok(Self::new_with_mem(mem))
         } else {
-            Err(format!("Error loading or parsing memory file: {}", mem_file))
+            Err(format!("Error loading or parsing memory file: {mem_file}"))
         }
     }
 
@@ -317,8 +317,8 @@ impl CPU6502 {
             match ins {
                 Err(e) => {
                     self.clear_debug_msg();
-                    self.debug_imm(format!("!!! CPU halting on encountering illegal opcode: {} !!!", e));
-                    panic!("\nCPU halt on encountering illegal opcode: {}.\nTo allow CPU to pass over illegal opcodes, use `cpu.set_illegal_opcode_mode(true)`\n", e)
+                    self.debug_imm(format!("!!! CPU halting on encountering illegal opcode: {e} !!!"));
+                    panic!("\nCPU halt on encountering illegal opcode: {e}.\nTo allow CPU to pass over illegal opcodes, use `cpu.set_illegal_opcode_mode(true)`\n")
                 }
                 Ok(CPUInstruction::HLT(CPUAddrMode::IMP)) => break,
                 Ok(_) => {},
@@ -346,8 +346,8 @@ impl CPU6502 {
             match ins {
                 Err(e) => {
                     self.clear_debug_msg();
-                    self.debug_imm(format!("!!! CPU halting on encountering illegal opcode: {} !!!", e));
-                    panic!("\nCPU halt on encountering illegal opcode: {}.\nTo allow CPU to pass over illegal opcodes, use `cpu.set_illegal_opcode_mode(true)`\n", e)
+                    self.debug_imm(format!("!!! CPU halting on encountering illegal opcode: {e} !!!"));
+                    panic!("\nCPU halt on encountering illegal opcode: {e}.\nTo allow CPU to pass over illegal opcodes, use `cpu.set_illegal_opcode_mode(true)`\n")
                 }
                 Ok(CPUInstruction::HLT(CPUAddrMode::IMP)) => break,
                 Ok(_) => {},
@@ -361,7 +361,7 @@ impl CPU6502 {
         }
         self.restore_debug_msg();
 
-        self.debug_imm("!!!CPU halted!!!".to_string());
+        self.debug_imm("!!! CPU halted !!!".to_string());
     }
 
     /// 1 cycle
@@ -372,7 +372,7 @@ impl CPU6502 {
     pub fn fetch_next_byte(&mut self) -> CPUByte {
         let ret = self.cpu_mem[self.pc as usize];
 
-        self.debug_imm(format!("fetch_next_byte ({:#04X})", ret));
+        self.debug_imm(format!("fetch_next_byte ({ret:#04X})"));
         self.cycles += 1;
         self.pc += 1;
 
@@ -390,13 +390,13 @@ impl CPU6502 {
     pub fn fetch_next_word(&mut self) -> CPUWord {
         let low = self.cpu_mem[self.pc as usize];
 
-        self.debug_imm(format!("fetch_next_word => low ({:#04X})", low));
+        self.debug_imm(format!("fetch_next_word => low ({low:#04X})"));
         self.cycles += 1;
         self.pc += 1;
 
         let high = self.cpu_mem[self.pc as usize];
         
-        self.debug_imm(format!("fetch_next_word => high ({:#04X})", high));
+        self.debug_imm(format!("fetch_next_word => high ({high:#04X})"));
         self.cycles += 1;
         self.pc += 1;
         
@@ -412,7 +412,7 @@ impl CPU6502 {
     /// 
     /// Does not affect pc.
     pub fn fetch_byte_at(&mut self, addr: CPUWord) -> CPUByte {
-        self.debug_imm(format!("fetch_byte_at ({:#06X})", addr));
+        self.debug_imm(format!("fetch_byte_at ({addr:#06X})"));
         
         self.cycles += 1;
         let  ret = self.cpu_mem[addr as usize];
@@ -428,7 +428,7 @@ impl CPU6502 {
     /// 
     /// Does not affect pc.
     pub fn fetch_word_at(&mut self, addr: CPUWord) -> CPUWord {
-        self.push_debug_msg(format!("fetch_word_at ({:#06X})", addr));
+        self.push_debug_msg(format!("fetch_word_at ({addr:#06X})"));
         self.debug();
 
         let low = self.fetch_byte_at(addr);
@@ -637,7 +637,7 @@ impl CPU6502 {
 
         self.cpu_mem[(0x0100 + self.sp as u16) as usize] = val;
         self.cycles += 1;
-        self.debug_imm(format!("push val ({:#04x})", val));
+        self.debug_imm(format!("push val ({val:#04x})"));
 
         // Don't need to check is stack overflows. Will likely crash process, this is correct behaviour.
         self.sp = self.sp.wrapping_sub(1);
@@ -662,7 +662,7 @@ impl CPU6502 {
 
         let ret = self.cpu_mem[(0x0100 + self.sp as u16) as usize];
         self.cycles += 2;
-        self.debug_imm(format!("retrieve val ({:#04x}", ret));
+        self.debug_imm(format!("retrieve val ({ret:#04x}"));
 
         self.debug_ret_byte("pull_byte", ret);
         self.restore_debug_msg();
@@ -677,14 +677,14 @@ impl CPU6502 {
     pub fn push_word(&mut self, val: CPUWord) {
         let [high, low] = val.to_be_bytes();
         
-        self.push_debug_msg(format!("push_word => store low ({:#04x})", val));
+        self.push_debug_msg(format!("push_word => store low ({val:#04x})"));
         self.push_byte(low);
         self.cycles -= 1;
         self.debug();
 
         self.restore_debug_msg();
 
-        self.push_debug_msg(format!("push_word => store high ({:#04x})", val));
+        self.push_debug_msg(format!("push_word => store high ({val:#04x})"));
         self.push_byte(high);
         self.cycles -= 1;
         self.debug();
@@ -729,7 +729,7 @@ impl CPU6502 {
     pub fn update_z(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::Z, val == 0);
 
-        self.debug_imm(format!("check_zero ({:#04x})", val))
+        self.debug_imm(format!("check_zero ({val:#04x})"))
     }
 
     /// 0 cycles
@@ -738,7 +738,7 @@ impl CPU6502 {
     pub fn update_n(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
-        self.debug_imm(format!("check_negative ({:#04x} / {:#010b})", val, val))
+        self.debug_imm(format!("check_negative ({val:#04x} / {val:#010b})"))
     }
 
     /// 0 cycles
@@ -746,7 +746,7 @@ impl CPU6502 {
     /// Sets carry bit to boolean value passed.
     pub fn update_c_if(&mut self, cond: bool) {
         self.ps.set_bit(BitMasks::C, cond);
-        self.debug_imm(format!("carry_if ({})", cond));
+        self.debug_imm(format!("carry_if ({cond})"));
     }
 
     /// 0 cycles
@@ -761,7 +761,7 @@ impl CPU6502 {
 
         self.ps.set_bit(BitMasks::V, (init_val_is_negative && add_val_is_negative && !final_val_is_negative) || (!init_val_is_negative && !add_val_is_negative && final_val_is_negative));
 
-        self.debug_imm(format!("check_overflow (init_val: {:#010b} add_val: {:#010b} final_val: {:#010b})", val1, val2, out))
+        self.debug_imm(format!("check_overflow (init_val: {val1:#010b} add_val: {val2:#010b} final_val: {out:#010b})"))
     }
 }
 
@@ -775,9 +775,10 @@ impl CPU6502 {
         use CPUAddrMode::*;
 
         self.push_debug_msg("decode_next_ins".to_string());
+
         let opcode = self.fetch_next_byte();
         self.restore_debug_msg();
-        self.push_debug_msg(format!("decode_next_ins ({:#04X})", opcode));
+        self.push_debug_msg(format!("decode_next_ins ({opcode:#04X})"));
 
         let ret = match opcode {
             0x00 => BRK(IMP),
@@ -939,14 +940,14 @@ impl CPU6502 {
                 } else if self.illegal_opcode_mode {
                     NOP(IMP)
                 } else {
-                    return Err(format!("{:#04X}", opcode))
+                    return Err(format!("{opcode:#04X}"))
                 }
             },
             _ => {
                 if self.illegal_opcode_mode {
                     NOP(IMP)
                 } else {
-                    return Err(format!("{:#04X}", opcode))
+                    return Err(format!("{opcode:#04X}"))
                 }
             },
         };
@@ -1018,7 +1019,7 @@ impl CPU6502 {
                 self.cycles += 1; 
                 self.debug_imm("NOP".to_string());
             }
-            _ => return Err(format!("Unimplemented instruction: {:?}", ins)),
+            _ => return Err(format!("Unimplemented instruction: {ins:?}")),
         }
         self.restore_debug_msg();
 
@@ -1244,7 +1245,7 @@ impl CPU6502 {
         if self.dbg {
             print!("*** ");
             for m in self.debug_msg.iter().take(self.debug_msg.len() - 1) {
-                print!("{} => ", m);
+                print!("{m} => ");
             }
             print!("{}", self.debug_msg.last().unwrap());
             println!(" ***\n{}\n", self);
@@ -1254,21 +1255,21 @@ impl CPU6502 {
     /// Print the name and return value of a CPU function returning a CPUByte.
     pub fn debug_ret_byte(&self, fname: &'static str, ret_val: CPUByte) {
         if self.dbg {
-            println!("-> {}: {:#04X}\n", fname, ret_val);
+            println!("-> {fname}: {ret_val:#04X}\n");
         }
     }
 
     /// Print the name and return value of a CPU function returning a CPUWord.
     pub fn debug_ret_word(&self, fname: &'static str, ret_val: CPUWord) {
         if self.dbg {
-            println!("-> {}: {:#06X}\n", fname, ret_val);
+            println!("-> {fname}: {ret_val:#06X}\n");
         }
     }
 
     /// Print the instruction returned by decode_next_ins.
     pub fn debug_ret_ins(&self, ret_ins: CPUInstruction) {
         if self.dbg {
-            println!("-> decode_next_ins: {:?}\n", ret_ins);
+            println!("-> decode_next_ins: {ret_ins:?}\n");
         }
     }
 

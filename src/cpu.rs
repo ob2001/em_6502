@@ -1,4 +1,4 @@
-use crate::{mem, prelude::*};
+use crate::{mem::Mem, prelude::*};
 use crate::{bitfield::BitField, bitmasks::BitMasks};
 
 pub type InstructionResult = Result<CPUInstruction, String>;
@@ -177,7 +177,7 @@ pub struct CPU6502 {
     /// - 0xFFFA/0xFFFB: Location of non-maskable interrupt handler
     /// - 0xFFFC/0xFFFD: Location of power on/reset location
     /// - 0xFFFE/0xFFFF: Location of BRK/interrupt request handler
-    cpu_mem: [CPUByte; CPU_MEMSIZE],
+    cpu_mem: Mem,
 
     dbg: bool,
     debug_msg: Vec<String>,
@@ -218,7 +218,7 @@ impl CPU6502 {
             ry: 0,
             ps: BitField::new(0),
             cycles: 0,
-            cpu_mem: [0; CPU_MEMSIZE],
+            cpu_mem: Mem::new_nops(),
             dbg: false,
             debug_msg: vec![],
             allow_hlt: true,
@@ -228,14 +228,14 @@ impl CPU6502 {
     }
 
     /// Create a new CPU6502 with memory as specified in `mem`
-    pub fn new_with_mem(mem: [CPUByte; CPU_MEMSIZE]) -> Self {
+    pub fn new_with_mem(mem: Mem) -> Self {
         let mut cpu = Self::new();
         cpu.flash_mem(mem);
         cpu
     }
 
     pub fn new_with_mem_from_file(mem_file: String) -> Result<Self, String> {
-        if let Ok(mem) = mem::new_from_file(mem_file.clone()) {
+        if let Ok(mem) = Mem::new_from_file(mem_file.clone()) {
             Ok(Self::new_with_mem(mem))
         } else {
             Err(format!("Error loading or parsing memory file: {mem_file}"))
@@ -272,7 +272,7 @@ impl CPU6502 {
     }
 
     /// Set the contents of the CPU memory to `mem`
-    pub fn flash_mem(&mut self, mem: [CPUByte; CPU_MEMSIZE]) {
+    pub fn flash_mem(&mut self, mem: Mem) {
         self.cpu_mem = mem;
     }
 
@@ -370,7 +370,7 @@ impl CPU6502 {
     /// 
     /// Increments pc.
     pub fn fetch_next_byte(&mut self) -> CPUByte {
-        let ret = self.cpu_mem[self.pc as usize];
+        let ret = self.cpu_mem.byte_at(self.pc);
 
         self.debug_imm(format!("fetch_next_byte ({ret:#04X})"));
         self.cycles += 1;
@@ -388,13 +388,13 @@ impl CPU6502 {
     /// 
     /// Increments pc twice.
     pub fn fetch_next_word(&mut self) -> CPUWord {
-        let low = self.cpu_mem[self.pc as usize];
+        let low = self.cpu_mem.byte_at(self.pc);
 
         self.debug_imm(format!("fetch_next_word => low ({low:#04X})"));
         self.cycles += 1;
         self.pc += 1;
 
-        let high = self.cpu_mem[self.pc as usize];
+        let high = self.cpu_mem.byte_at(self.pc);
         
         self.debug_imm(format!("fetch_next_word => high ({high:#04X})"));
         self.cycles += 1;
@@ -415,7 +415,7 @@ impl CPU6502 {
         self.debug_imm(format!("fetch_byte_at ({addr:#06X})"));
         
         self.cycles += 1;
-        let  ret = self.cpu_mem[addr as usize];
+        let  ret = self.cpu_mem.byte_at(addr);
         self.debug_ret_byte("fetch_byte_at", ret);
         
         ret
@@ -635,7 +635,7 @@ impl CPU6502 {
     pub fn push_byte(&mut self, val: CPUByte) {       
         self.push_debug_msg("push_byte".to_string());
 
-        self.cpu_mem[(0x0100 + self.sp as u16) as usize] = val;
+        *self.cpu_mem.mut_byte_at(0x0100 + self.sp as CPUWord) = val;
         self.cycles += 1;
         self.debug_imm(format!("push val ({val:#04x})"));
 
@@ -660,7 +660,7 @@ impl CPU6502 {
         self.cycles += 1;
         self.debug_imm("dec sp".to_string());
 
-        let ret = self.cpu_mem[(0x0100 + self.sp as u16) as usize];
+        let ret = self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord);
         self.cycles += 2;
         self.debug_imm(format!("retrieve val ({ret:#04x}"));
 
@@ -1096,30 +1096,26 @@ impl CPU6502 {
 
         let addr = match mode {
             ACC => None,
-            ZPG => Some(0x0000 + self.fetch_next_byte() as CPUWord),
-            ZPX => Some(0x0000 + self.fetch_next_byte() as CPUWord),
+            ZPG => Some(self.fetch_next_byte() as CPUWord),
+            ZPX => Some(self.fetch_next_byte() as CPUWord),
             ABS => Some(self.fetch_next_word()),
             ABX => Some(self.fetch_next_word()),
             _ => panic!("Invalid address mode for ASL"),
         };
 
-        let mut val = match addr {
-            None => self.ac,
-            Some(a) => self.cpu_mem[a as usize],
+        let byte = match addr {
+            None => &mut self.ac,
+            Some(a) => self.cpu_mem.mut_byte_at(a),
         };
 
-        self.update_c_if(val & 0b1000_0000 != 0);
-
-        val <<= 1;
+        let orig_byte = byte.clone();
+        *byte <<= 1;
         self.cycles += 1;
-
-        self.update_z(val);
-        self.update_n(val);
-
-        match mode {
-            ACC => { self.ac = val },
-            _ => { self.cpu_mem[addr.unwrap() as usize] = val },
-        };
+        let new_byte = byte.clone();
+        
+        self.update_c_if(orig_byte & 0b1000_0000 != 0);
+        self.update_z(self.ac);
+        self.update_n(new_byte);
 
         self.restore_debug_msg();
     }
@@ -1314,25 +1310,14 @@ impl std::fmt::Display for CPU6502 {
             self.ac,
             self.rx,
             self.ry,
-            self.cpu_mem[self.pc as usize],
-            ((self.cpu_mem[(self.pc.wrapping_add(1)) as usize] as CPUWord) << 8) + self.cpu_mem[self.pc as usize] as CPUWord,
+            self.cpu_mem.byte_at(self.pc),
+            ((self.cpu_mem.byte_at(self.pc.wrapping_add(1)) as CPUWord) << 8) + self.cpu_mem.byte_at(self.pc) as CPUWord,
         )
     }
 }
 
 impl std::fmt::Debug for CPU6502 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}\n", self)?;
-
-        let print_bytes_per_line = 25;
-        write!(f, "\n{:-^1$}\n", "!!! MEMORY DUMP !!!", print_bytes_per_line * 4 - 1)?;
-        for (i, &byte) in self.cpu_mem.iter().enumerate() {
-            write!(f, "{:02X}, ", byte)?;
-            if i != 0 && (i + 1) % print_bytes_per_line == 0 {
-                write!(f, "\n")?;
-            }
-        }
-
-        std::fmt::Result::Ok(())
+        write!(f, "{}\n{:?}", self, self.cpu_mem)
     }
 }

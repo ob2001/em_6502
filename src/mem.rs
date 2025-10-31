@@ -53,38 +53,51 @@ pub fn new_hlts_with_code_at(code: &[CPUByte], idx: usize) -> MemResult {
 
 /// Generate CPU memory from a file specification
 pub fn new_from_file(file: String) -> MemResult {
-    if let Ok(f) = std::fs::read_to_string(file) {
+    if let Ok(f) = std::fs::read_to_string(&file) {
         let mut ret = new_nops();
-        let mut radix_mode: u32 = 16;
+        let mut byte_radix_mode: u32 = 16;
 
         for (i, line) in f.lines().enumerate() {
-            if line.len() == 0 { continue }
+            let trim_line = line.trim();
+            if trim_line.len() == 0 || trim_line.chars().next() == Some(';') { continue }
+            // Line is now guaranteed to contain at least one non-comment, non-whitespace character.
 
-            let trim_line = line.trim().split(';').next().expect(&format!("Parsing error: should be able to split line {i} on \';\'")).trim();
-            if !trim_line.contains(':') { return Err(format!("Parsing error - line {} is missing a colon (:)", i + 1)) }
+            let trim_line = line.trim().split(';').next().expect(&format!("Parsing error: should be able to split line {} on \';\'", i + 1)).trim();
+            // Comments are now guaranteed to be discarded and the non-comment
+            // section of the line is trimmed of whitepace characters
 
-            let split: Vec<String> = trim_line.split(':').map(str::to_owned).collect();
-            if split.len() != 2 { return Err(format!("Error splitting on colon (:): line {} contains too many colons (:)", i + 1)) }
+            if trim_line.to_owned().chars().fold(0, |acc, c| acc + if c == ':' {1} else {0}) != 1 {
+                return Err(format!("Parsing error - line {} should contain exactly one colon (:)", i + 1))
+            }
+            // Line is now guaranteed to contain exactly one colon (:)
 
-            let (pre, post) = (split[0].clone(), split[1].clone());
-
-            let post: Vec<String> = post.split(',').map(str::trim).map(str::to_owned).collect();
+            let mut split = trim_line.split(':').map(str::to_owned);
+            let (pre, post) = (split.next().unwrap(), split.next().unwrap());
+            let mut post = post.split(',').map(str::trim).map(str::to_owned);
+            // pre is now our predicate that we match on to determine how to process post
 
             match pre.trim() {
-                "radix_mode" => {
-                    let mode = u32::from_str_radix(&post[0], 10).expect(&format!("Error parsing radix_mode in line {}: \"{}\" is not a decimal literal", i + 1, &post[0]));
-                    radix_mode = mode;
+                "byte_radix_mode" => {
+                    let val = post.next().unwrap();
+                    byte_radix_mode = match val.to_lowercase().as_str() {
+                        "2" | "bin" | "binary" => 2,
+                        "10" | "dec" | "decimal" => 10,
+                        "16" | "hex" | "hexadecimal" => 16,
+                        _ => panic!("Error parsing byte_radix_mode in line {}. Only support binary, decimal, or hexadecimal modes.", i + 1),
+                    }
                 },
-                "pad_all" => {
-                    let pad_byte = u8::from_str_radix(&post[0], radix_mode).expect(&format!("Error parsing pad_byte in line {}: \"{}\" in an invalid base-{radix_mode} byte representation", i + 1, &post[0]));
-                    ret = new_all(pad_byte);
+                "fill_byte" => {
+                    let fill_byte = &post.next().unwrap();
+                    let fill_byte = u8::from_str_radix(fill_byte, byte_radix_mode).expect(&format!("Error parsing fill_byte in line {}: \"{}\" in an invalid base-{byte_radix_mode} representation of a byte", i + 1, fill_byte));
+                    ret = new_all(fill_byte);
                 },
                 addr => {
-                    let address = u16::from_str_radix(addr, radix_mode).expect(&format!("Error parsing address in line {}: \"{}\" is an invalid base-{radix_mode} 2-byte representation", i + 1, addr));
+                    let address = u16::from_str_radix(addr, 16).expect(&format!("Error parsing address predicate in line {}: \"{}\" is an invalid hexadecimal representation of 2 bytes", i + 1, addr));
                     let mut mem_line: Vec<u8> = Vec::new();
                     
-                    for byte in post.iter().map(|b| b.trim()) {
-                        let byte = u8::from_str_radix(byte, radix_mode).expect(&format!("Error parsing byte in line {}: \"{}\" is an invalid base-{radix_mode} byte representation", i + 1, byte));
+                    for byte in post {
+                        let byte = byte.trim();
+                        let byte = u8::from_str_radix(byte, byte_radix_mode).expect(&format!("Error parsing byte in line {}: \"{}\" is an invalid base-{byte_radix_mode} representation of a byte", i + 1, byte));
                         mem_line.push(byte);
                     }
 
@@ -95,7 +108,7 @@ pub fn new_from_file(file: String) -> MemResult {
 
         Ok(ret)
     } else {
-        MemResult::Err("".to_string())
+        Err(format!("Error reading supplied memory specification file: {}", file))
     }
 }
 
@@ -103,15 +116,15 @@ pub fn new_from_file(file: String) -> MemResult {
 ///
 /// Will overwrite memory in modification range.
 pub fn insert_code_at(mem: &mut [CPUByte; CPU_MEMSIZE], code: &[CPUByte], idx: usize) -> Result<(), &'static str> {
-    if idx <= CPU_MEMSIZE && code.len() + idx <= CPU_MEMSIZE {
+    if idx > CPU_MEMSIZE {
+        Err("Error: code insertion point out of memory bounds")
+    } else if code.len() + idx > CPU_MEMSIZE {
+        Err("Error: code overflows memory bounds. Consider inserting at an earlier index")
+    } else {
         for (offset, &byte) in code.iter().enumerate() {
             mem[idx + offset] = byte;
         }
         Ok(())
-    } else if idx > CPU_MEMSIZE {
-        Err("Error: code insertion point out of memory bounds")
-    } else {
-        Err("Error: code overflows memory bounds. Consider inserting at an earlier index")
     }
 }
 

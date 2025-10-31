@@ -1007,6 +1007,38 @@ impl CPU6502 {
                 self.restore_debug_msg();
             },
             BRK(IMP) => self.brk(),
+            BVC(REL) => {
+                self.push_debug_msg("BVC".to_string());
+                self.branch(!self.ps.test_bit(BitMasks::V));
+                self.restore_debug_msg();
+            },
+            BVS(REL) => {
+                self.push_debug_msg("BVS".to_string());
+                self.branch(self.ps.test_bit(BitMasks::V));
+                self.restore_debug_msg();
+            },
+            CLC(IMP) => {
+                self.push_debug_msg("CLC".to_string());
+                self.set_flag(false, BitMasks::C);
+                self.restore_debug_msg();
+            },
+            CLD(IMP) => {
+                self.push_debug_msg("CLD".to_string());
+                self.set_flag(false, BitMasks::D);
+                self.restore_debug_msg();
+            },
+            CLI(IMP) => {
+                self.push_debug_msg("CLI".to_string());
+                self.set_flag(false, BitMasks::I);
+                self.restore_debug_msg();
+            },
+            CLV(IMP) => {
+                self.push_debug_msg("CLV".to_string());
+                self.set_flag(false, BitMasks::V);
+            },
+            CMP(mode) => self.cmp(mode),
+            CPX(mode) => self.cpx(mode),
+            CPY(mode) => self.cpy(mode),
             // !
             // ! todo: Continue instruction implementation
             // !
@@ -1120,7 +1152,7 @@ impl CPU6502 {
         self.restore_debug_msg();
     }
 
-    /// 1 - 4 cycles
+    /// 1 - 3 cycles
     /// 
     /// Implements functionality for listed Instructions:
     /// - BCC
@@ -1133,9 +1165,7 @@ impl CPU6502 {
     /// - BVC
     /// - BVS
     pub fn branch(&mut self, cond: bool) {
-        self.cycles += 1;
         self.debug();
-
         if cond {
             self.cycles += 1;
             self.debug_imm("branch_success".to_string());
@@ -1196,6 +1226,71 @@ impl CPU6502 {
         self.ps.set_bit(BitMasks::V, val & 0b0100_0000 != 0);
 
         self.restore_debug_msg();
+    }
+
+    pub fn cmp(&mut self, mode: CPUAddrMode) {
+        use CPUAddrMode::*;
+        self.push_debug_msg("CMP".to_string());
+
+        let val = match mode {
+            IMM => self.imm(),
+            ZPG => self.zpg(),
+            ZPX => self.zpx(),
+            ABS => self.abs(),
+            ABX => self.abx(),
+            ABY => self.aby(),
+            IDX => self.idx(),
+            IDY => self.idy(),
+            _ => panic!("Invalid address mode for CMP"),
+        };
+
+        self.ps.set_bit(BitMasks::C, self.ac >= val);
+        self.ps.set_bit(BitMasks::Z, self.ac == val);
+        self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
+
+        self.restore_debug_msg();
+    }
+
+    pub fn cpx(&mut self, mode: CPUAddrMode) {
+        use  CPUAddrMode::*;
+        self.push_debug_msg("CPX".to_string());
+
+        let val = match mode {
+            IMM => self.imm(),
+            ZPG => self.zpg(),
+            ABS => self.abs(),
+            _ => panic!("Invalid addressing mode for CPX"),
+        };
+
+        self.ps.set_bit(BitMasks::C, self.rx >= val);
+        self.ps.set_bit(BitMasks::Z, self.rx == val);
+        self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
+
+        self.restore_debug_msg();
+    }
+
+    pub fn cpy(&mut self, mode: CPUAddrMode) {
+        use  CPUAddrMode::*;
+        self.push_debug_msg("CPY".to_string());
+
+        let val = match mode {
+            IMM => self.imm(),
+            ZPG => self.zpg(),
+            ABS => self.abs(),
+            _ => panic!("Invalid addressing mode for CPX"),
+        };
+
+        self.ps.set_bit(BitMasks::C, self.ry >= val);
+        self.ps.set_bit(BitMasks::Z, self.ry == val);
+        self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
+
+        self.restore_debug_msg();
+    }
+
+    pub fn set_flag(&mut self, val: bool, flag: BitMasks) {
+        self.ps.set_bit(flag, val);
+        self.cycles += 1;
+        self.debug();
     }
 
     /// 1 - 5 cycles

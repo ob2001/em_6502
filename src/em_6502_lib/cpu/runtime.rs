@@ -86,7 +86,7 @@ impl CPU6502 {
 
         self.debug_imm(format!("fetch_next_byte ({ret:#04X})"));
         self.cycles += 1;
-        self.pc += 1;
+        self.pc = self.pc.wrapping_add(1);
 
         self.debug_ret_byte("fetch_next_byte", ret);
         
@@ -112,7 +112,7 @@ impl CPU6502 {
         self.cycles += 1;
         self.pc += 1;
         
-        let ret = (high as CPUWord) << 8 + low as CPUWord;
+        let ret = ((high as CPUWord) << 8) + low as CPUWord;
         self.debug_ret_word("fetch_next_word", ret);
         
         ret

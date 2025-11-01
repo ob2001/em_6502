@@ -1,9 +1,8 @@
+use crate::{prelude::*, cpu::CPU6502};
+
 // !
 // ! todo: add debugging information and documentation to functions where it is lacking
 // !
-
-use super::super::{prelude::*, cpu::CPU6502};
-
 /// CPU instruction implementation functions
 impl CPU6502 {
     /// 1 - 5 cycles

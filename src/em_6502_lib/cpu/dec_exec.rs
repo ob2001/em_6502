@@ -1,4 +1,4 @@
-use super::super::{prelude::*, cpu::CPU6502, bitfield::BitField};
+use crate::{prelude::*, cpu::CPU6502, bitfield::BitField};
 
 pub type InstructionResult = Result<CPUInstruction, String>;
 
@@ -179,14 +179,14 @@ impl CPU6502 {
                 } else {
                     return Err(format!("{opcode:#04X}"))
                 }
-            },
+            }
             _ => {
                 if self.illegal_opcode_mode {
                     NOP(IMP)
                 } else {
                     return Err(format!("{opcode:#04X}"))
                 }
-            },
+            }
         };
 
         self.debug();

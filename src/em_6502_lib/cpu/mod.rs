@@ -1,10 +1,11 @@
-use super::{prelude::*, mem::Mem, bitfield::BitField};
+use crate::{prelude::*, mem::Mem, bitfield::BitField};
 
 pub mod debug;
 pub mod dec_exec;
 pub mod ins;
 pub mod runtime;
 
+/// 56 spec instructions, +1 added instruction (HLT) for debugging
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CPUInstruction {
     ADC(CPUAddrMode),
@@ -208,7 +209,6 @@ pub struct CPU6502 {
     cycle_limit: usize,
 }
 
-/// 56 spec instructions, +1 added instruction for debugging
 /// CPU creation/setup functions, do not interact with runtime (No CPU cycles)
 impl CPU6502 {
     /// Create a new CPU6502 with registers set to defaults and zeroed memory

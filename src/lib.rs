@@ -1,10 +1,3 @@
-pub mod prelude;
-pub mod cpu;
-pub mod mem;
-pub mod bitfield;
-pub mod bitmasks;
+pub mod em_6502;
 
-pub type CPUByte = u8;
-pub type CPUWord = u16;
-
-pub const CPU_MEMSIZE: usize = 65536;
+pub use em_6502::{prelude, mem, bitmasks, bitfield, cpu};

@@ -1,4 +1,4 @@
-use crate::bitmasks::BitMasks;
+use super::bitmasks::BitMasks;
 
 #[derive(Copy, Clone)]
 pub struct BitField(u8);

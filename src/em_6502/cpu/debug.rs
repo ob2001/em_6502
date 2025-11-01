@@ -1,4 +1,4 @@
-use crate::cpu::{CPU6502, CPUByte, CPUWord, CPUInstruction};
+use super::super::cpu::{CPU6502, CPUByte, CPUWord, CPUInstruction};
 
 /// CPU runtime debugging utility functions (No CPU cycles)
 impl CPU6502 {

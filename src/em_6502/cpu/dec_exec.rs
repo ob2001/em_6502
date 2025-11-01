@@ -1,4 +1,4 @@
-use crate::{prelude::*, cpu::CPU6502, bitfield::BitField};
+use super::super::{prelude::*, cpu::CPU6502, bitfield::BitField};
 
 pub type InstructionResult = Result<CPUInstruction, String>;
 

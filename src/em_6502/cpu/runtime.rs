@@ -1,4 +1,4 @@
-use crate::{prelude::*, cpu::CPU6502};
+use super::super::{prelude::*, cpu::CPU6502};
 
 /// CPU internal runtime functions
 impl CPU6502 {

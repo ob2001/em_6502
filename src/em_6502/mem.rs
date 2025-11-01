@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use super::prelude::*;
 
 pub struct Mem { mem: [CPUByte; CPU_MEMSIZE], debug_bytes_per_line: usize }
 pub type MemResult = Result<Mem, String>;

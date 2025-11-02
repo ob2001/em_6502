@@ -1,0 +1,11 @@
+byte_radix_mode: HEX    ; Bytes written as hexadecimal literals
+fill_byte: EA           ; NOP
+
+0000: A9, F3            ; LDA IMM F3
+0002: 00                ; BRK
+0003: FF                ; HLT
+0010: FF                ;
+
+FFFA: 00, 00            ; Non-maskable interrupt handler
+FFFC: 00, 00            ; Power-on/Reset Vector
+FFFE: 10, 00            ; Interrupt request vector

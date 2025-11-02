@@ -1,6 +1,0 @@
-byte_radix_mode: HEX
-fill_byte: 00
-
-0000: A9, F3, 00, FF
-0010: FF
-FFFC: 00, 00, 10, 00

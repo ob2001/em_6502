@@ -82,9 +82,9 @@ impl CPU6502 {
     /// 
     /// Increments pc.
     pub fn fetch_next_byte(&mut self) -> CPUByte {
+        self.debug_imm(format!("fetch_next_byte"));
         let ret = self.cpu_mem.byte_at(self.pc);
 
-        self.debug_imm(format!("fetch_next_byte ({ret:#04X})"));
         self.cycles += 1;
         self.pc = self.pc.wrapping_add(1);
 
@@ -100,15 +100,14 @@ impl CPU6502 {
     /// 
     /// Increments pc twice.
     pub fn fetch_next_word(&mut self) -> CPUWord {
+        self.debug_imm("fetch_next_word".to_string());
         let low = self.cpu_mem.byte_at(self.pc);
 
-        self.debug_imm(format!("fetch_next_word => low ({low:#04X})"));
         self.cycles += 1;
         self.pc += 1;
 
         let high = self.cpu_mem.byte_at(self.pc);
         
-        self.debug_imm(format!("fetch_next_word => high ({high:#04X})"));
         self.cycles += 1;
         self.pc += 1;
         
@@ -143,8 +142,12 @@ impl CPU6502 {
         self.push_debug_msg(format!("fetch_word_at ({addr:#06X})"));
         self.debug();
 
-        let low = self.fetch_byte_at(addr);
-        let high = self.fetch_byte_at(addr + 1);
+        let low = self.cpu_mem.byte_at(addr);
+        self.cycles += 1;
+
+        let high = self.cpu_mem.byte_at(addr.wrapping_add(1));
+        self.cycles += 1;
+        
         let ret = ((high as CPUWord) << 8).wrapping_add(low as CPUWord);
         self.debug_ret_word("fetch_word_at", ret);
 
@@ -403,8 +406,6 @@ impl CPU6502 {
     /// Updates the zero flag based on the CPUByte value passed.
     pub fn update_z(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::Z, val == 0);
-
-        self.debug_imm(format!("check_zero ({val:#04x})"))
     }
 
     /// 0 cycles
@@ -412,8 +413,6 @@ impl CPU6502 {
     /// Updates the negative flag based on the CPUByte value passed.
     pub fn update_n_flag(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
-
-        self.debug_imm(format!("check_negative ({val:#04x} / {val:#010b})"))
     }
 
     /// 0 cycles

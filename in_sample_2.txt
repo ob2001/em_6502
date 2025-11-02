@@ -1,0 +1,17 @@
+byte_radix_mode: HEX
+fill_byte: EA   ; NOP
+
+0015: 50        ; Data
+
+0200: A2, 05    ; LDX IMM 05
+0202: B5, 10    ; LDA ZPX 10
+0204: E9, 25    ; SBC IMM 25
+0206: B0, B0    ; BCS REL B0
+0208: FF        ; HLT
+0209: FF        ; HLT
+
+02B7: FF        ; HLT
+
+FFFA: 00, 00    ; Non-maskable interrupt handler
+FFFC: 00, 02    ; Power-on/reset vector
+FFFE: 09, 02    ; Interrupt request vector

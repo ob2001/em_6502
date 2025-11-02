@@ -11,7 +11,7 @@ impl Mem {
 
     /// Create new cpu memory with all NOP instructions
     pub fn new_nops() -> Self {
-        Self::new_all(0x00)
+        Self::new_all(0xEA)
     }
 
     /// Create new cpu memory with all (illegal) HLT instructions
@@ -79,9 +79,10 @@ impl Mem {
                         let val = post.next().unwrap();
                         byte_radix_mode = match val.to_lowercase().as_str() {
                             "2" | "bin" | "binary" => 2,
+                            "8" | "oct" | "octal" => 8,
                             "10" | "dec" | "decimal" => 10,
                             "16" | "hex" | "hexadecimal" => 16,
-                            _ => panic!("Error parsing byte_radix_mode in line {}. Only support binary, decimal, or hexadecimal modes.", i + 1),
+                            _ => panic!("Error parsing byte_radix_mode in line {}. Only support binary, octal, decimal, or hexadecimal modes.", i + 1),
                         }
                     },
                     "fill_byte" => {

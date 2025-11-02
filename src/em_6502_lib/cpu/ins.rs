@@ -1,8 +1,5 @@
 use crate::{prelude::*, cpu::CPU6502};
 
-// !
-// ! todo: add debugging information and documentation to functions where it is lacking
-// !
 /// CPU instruction implementation functions
 impl CPU6502 {
     /// 1 - 5 cycles
@@ -10,11 +7,10 @@ impl CPU6502 {
     /// Implements functionality of the ADC Instruction.
     pub fn adc(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
-
         self.push_debug_msg("ADC".to_string());
 
         let init_val = self.ac;
-        let add_val = if self.ps.test_bit(BitMasks::C) {1} else {0} + match mode {
+        let add_val = match mode {
             IMM => self.imm(),
             ZPG => self.zpg(),
             ZPX => self.zpx(),
@@ -24,15 +20,16 @@ impl CPU6502 {
             IDX => self.idx(),
             IDY => self.idy(),
             _ => panic!("Invalid address mode for ADC"),
-        };
-        
+        }.wrapping_add(if self.ps.test_bit(BitMasks::C) {1} else {0});
+
         self.ac = self.ac.wrapping_add(add_val);
-        
-        self.update_v(init_val, add_val, self.ac);
+
+        self.update_v_flag(init_val, add_val, self.ac);
         self.ps.set_bit(BitMasks::C, self.ps.test_bit(BitMasks::V));
         self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
         self.ps.set_bit(BitMasks::Z, self.ac == 0);
-
+        
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -41,7 +38,6 @@ impl CPU6502 {
     /// Implements functionality of the AND Instruction
     pub fn and(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
-
         self.push_debug_msg("AND".to_string());
 
         self.ac &= match mode {
@@ -57,8 +53,9 @@ impl CPU6502 {
         };
 
         self.update_z(self.ac);
-        self.update_n(self.ac);
+        self.update_n_flag(self.ac);
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -87,11 +84,12 @@ impl CPU6502 {
         *byte = byte.wrapping_shl(1);
         self.cycles += 1;
         let new_byte = byte.clone();
-        
+
         self.ps.set_bit(BitMasks::C, orig_byte & 0b1000_0000 != 0);
         self.update_z(self.ac);
-        self.update_n(new_byte);
+        self.update_n_flag(new_byte);
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -108,9 +106,10 @@ impl CPU6502 {
     /// - BVC
     /// - BVS
     pub fn branch(&mut self, cond: bool) {
+        // Debug message is set and restored from calling executiong function
         self.debug();
+        self.cycles += 1;
         if cond {
-            self.cycles += 1;
             self.debug_imm("branch_success".to_string());
 
             let orig = self.pc;
@@ -136,7 +135,7 @@ impl CPU6502 {
         self.push_debug_msg("push_ps".to_string());
         self.push_byte(self.ps.to_inner());
         self.restore_debug_msg();
-        
+
         self.ps.set_bit(BitMasks::B, true);
         self.cycles += 1;
 
@@ -153,7 +152,6 @@ impl CPU6502 {
     /// Implements functionality of the BIT Instruction
     pub fn bit(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
-
         self.push_debug_msg("BIT".to_string());
 
         let val = match mode {
@@ -165,16 +163,13 @@ impl CPU6502 {
         self.cycles += 1;
 
         self.update_z(self.ac & val);
-        self.update_n(val);
-
+        self.update_n_flag(val);
         self.ps.set_bit(BitMasks::V, val & 0b0100_0000 != 0);
 
+        self.debug();
         self.restore_debug_msg();
     }
 
-    // !
-    // ! todo: Add debugging information for following functions
-    // !
     pub fn cmp(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
         self.push_debug_msg("CMP".to_string());
@@ -195,6 +190,7 @@ impl CPU6502 {
         self.ps.set_bit(BitMasks::Z, self.ac == val);
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -213,6 +209,7 @@ impl CPU6502 {
         self.ps.set_bit(BitMasks::Z, self.rx == val);
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -231,6 +228,7 @@ impl CPU6502 {
         self.ps.set_bit(BitMasks::Z, self.ry == val);
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -248,13 +246,16 @@ impl CPU6502 {
 
         let byte = self.cpu_mem.mut_byte_at(addr as CPUWord);
         self.cycles += 1;
-
+        let orig_byte = byte.clone();
+        
         *byte = byte.wrapping_sub(1);
         self.cycles += 1;
+        let new_byte = byte.clone();
 
-        self.ps.set_bit(BitMasks::Z, *byte == 0);
-        self.ps.set_bit(BitMasks::N, *byte & 0b1000_0000 != 0);
+        self.ps.set_bit(BitMasks::Z, new_byte == 0);
+        self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
 
+        self.debug_imm(format!("byte at {addr:#06X} decremented ({orig_byte} -> {new_byte})"));
         self.restore_debug_msg();
     }
 
@@ -296,13 +297,17 @@ impl CPU6502 {
 
         let byte = self.cpu_mem.mut_byte_at(addr as CPUWord);
         self.cycles += 1;
+        let orig_byte = byte.clone();
 
         *byte = byte.wrapping_add(1);
         self.cycles += 1;
+        let new_byte = byte.clone();
 
-        self.ps.set_bit(BitMasks::Z, *byte == 0);
-        self.ps.set_bit(BitMasks::N, *byte & 0b1000_0000 != 0);
+        self.ps.set_bit(BitMasks::Z, new_byte == 0);
+        self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
 
+        self.debug_imm(format!("byte at {addr:#06X} incremented ({orig_byte} -> {new_byte})"));
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -317,7 +322,7 @@ impl CPU6502 {
     pub fn jmp(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
         self.push_debug_msg("JMP".to_string());
-        
+
         self.pc = match mode {
             ABS => self.fetch_next_word(),
             IND => {
@@ -326,6 +331,7 @@ impl CPU6502 {
             },
             _ => panic!("Invalid addressing mode for JMP"),
         };
+        self.debug_imm("set pc".to_string());
 
         self.restore_debug_msg();
     }
@@ -335,7 +341,6 @@ impl CPU6502 {
     /// Implements functionality of the LDA Instruction
     pub fn lda(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
-
         self.push_debug_msg("LDA".to_string());
 
         self.ac = match mode {
@@ -350,17 +355,14 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for LDA"),
         };
 
-        self.debug_imm("ret -> ac".to_string());
-
         self.update_z(self.ac);
-        self.update_n(self.ac);
+        self.update_n_flag(self.ac);
 
+        self.debug_imm("ret -> ac".to_string());
+        
         self.restore_debug_msg();
     }
 
-    // !
-    // ! todo: Add debugging information for following functions
-    // !
     pub fn ldx(&mut self, mode: CPUAddrMode) {
         use CPUAddrMode::*;
         self.push_debug_msg("LDX".to_string());
@@ -376,6 +378,8 @@ impl CPU6502 {
 
         self.ps.set_bit(BitMasks::Z, self.rx == 0);
         self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
+
+        self.debug_imm("ret -> rx".to_string());
 
         self.restore_debug_msg();
     }
@@ -395,6 +399,8 @@ impl CPU6502 {
 
         self.ps.set_bit(BitMasks::Z, self.ry == 0);
         self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
+
+        self.debug_imm("ret -> ry".to_string());
 
         self.restore_debug_msg();
     }
@@ -422,10 +428,12 @@ impl CPU6502 {
         self.cycles += 1;
         let new_byte = byte.clone();
 
+        
         self.ps.set_bit(BitMasks::C, orig_byte & 0b0000_0001 != 0);
         self.ps.set_bit(BitMasks::Z, new_byte == 0);
         self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
-
+        
+        self.debug_imm(format!("{} arithmetically shifted right ({orig_byte} -> {new_byte})", if let Some(a) = addr {format!("byte at {:#06X}", a)} else {"ac".to_string()}));
         self.restore_debug_msg();
     }
 
@@ -433,7 +441,7 @@ impl CPU6502 {
         use CPUAddrMode::*;
         self.push_debug_msg("ORA".to_string());
 
-        let val = match mode {
+        self.ac |= match mode {
             IMM => self.imm(),
             ZPG => self.zpg(),
             ZPX => self.zpx(),
@@ -445,11 +453,10 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for ORA"),
         };
 
-        self.ac |= val;
         self.ps.set_bit(BitMasks::Z, self.ac == 0);
         self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
+        
         self.debug();
-
         self.restore_debug_msg();
     }
 
@@ -480,6 +487,7 @@ impl CPU6502 {
         self.ps.set_bit(BitMasks::Z, self.ac == 0);
         self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
 
+        self.debug_imm(format!("{} rotated left ({orig_byte} -> {new_byte})", if let Some(a) = addr {format!("byte at {:#06X}", a)} else {"ac".to_string()}));
         self.restore_debug_msg();
     }
 
@@ -510,6 +518,7 @@ impl CPU6502 {
         self.ps.set_bit(BitMasks::Z, self.ac == 0);
         self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
 
+        self.debug_imm(format!("{} rotated right ({orig_byte} -> {new_byte})", if let Some(a) = addr {format!("byte at {:#06X}", a)} else {"ac".to_string()}));
         self.restore_debug_msg();
     }
 
@@ -531,13 +540,14 @@ impl CPU6502 {
         let orig_val = self.ac;
         self.ac = self.ac.wrapping_sub(val + if !self.ps.test_bit(BitMasks::C) {1} else {0});
 
-        self.update_v(orig_val, val, self.ac);
+        self.update_v_flag(orig_val, val, self.ac);
         if self.ps.test_bit(BitMasks::V) {
             self.ps.set_bit(BitMasks::C, false);
         }
         self.ps.set_bit(BitMasks::Z, self.ac == 0);
         self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -548,36 +558,36 @@ impl CPU6502 {
         let addr = match mode {
             ZPG => self.fetch_next_byte() as CPUWord,
             ZPX => {
-                let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
                 self.cycles += 1;
-                addr
+                self.fetch_next_byte().wrapping_add(self.rx) as CPUWord
             },
             ABS => self.fetch_next_word(),
             ABX => {
-                let addr = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
                 self.cycles += 1;
-                addr
+                self.fetch_next_word().wrapping_add(self.rx as CPUWord)
             },
             ABY => {
-                let addr = self.fetch_next_word().wrapping_add(self.ry as CPUWord);
                 self.cycles += 1;
-                addr
+                self.fetch_next_word().wrapping_add(self.ry as CPUWord)
             },
             IDX => {
-                let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
                 self.cycles += 1;
+                let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
                 self.fetch_word_at(addr)
             },
             IDY => {
                 let addr = self.fetch_next_byte();
+                self.cycles += 1;
                 self.fetch_word_at(addr as CPUWord).wrapping_add(self.ry as CPUWord)
             },
             _ => panic!("Invalid address mode for STA"),
         };
 
+        self.debug_imm(format!("store ac ({:#04X}) at {addr:#06X}", self.ac));
         *self.cpu_mem.mut_byte_at(addr) = self.ac;
         self.cycles += 1;
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -596,9 +606,11 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for STX"),
         };
 
+        self.debug_imm(format!("store rx ({:#04X}) at {addr:#06X}", self.rx));
         *self.cpu_mem.mut_byte_at(addr) = self.ac;
         self.cycles += 1;
 
+        self.debug();
         self.restore_debug_msg();
     }
 
@@ -617,9 +629,11 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for STY"),
         };
 
+        self.debug_imm(format!("store ry ({:#04X}) at {addr:#06X}", self.ry));
         *self.cpu_mem.mut_byte_at(addr) = self.ac;
         self.cycles += 1;
 
+        self.debug();
         self.restore_debug_msg();
     }
 }

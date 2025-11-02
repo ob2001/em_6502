@@ -410,7 +410,7 @@ impl CPU6502 {
     /// 0 cycles
     /// 
     /// Updates the negative flag based on the CPUByte value passed.
-    pub fn update_n(&mut self, val: CPUByte) {
+    pub fn update_n_flag(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
 
         self.debug_imm(format!("check_negative ({val:#04x} / {val:#010b})"))
@@ -421,7 +421,7 @@ impl CPU6502 {
     /// Updates the overflow flag based on the two input CPUByte values and the
     /// output CPUByte value. (Indicates an incorrect 2's complement result from an
     /// arithmetic operation).
-    pub fn update_v(&mut self, val1: CPUByte, val2: CPUByte, out: CPUByte) {
+    pub fn update_v_flag(&mut self, val1: CPUByte, val2: CPUByte, out: CPUByte) {
         let init_val_is_negative = val1 & 0b1000_0000 != 0;
         let add_val_is_negative = val2 & 0b1000_0000 != 0;
         let final_val_is_negative = out & 0b1000_0000 != 0;

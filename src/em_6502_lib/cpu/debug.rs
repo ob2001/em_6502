@@ -75,7 +75,7 @@ impl CPU6502 {
 
 impl std::fmt::Display for CPU6502 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "cycles: {}\npc: {:#06X}\nps (NVuBDIZC): {:08b}\nsp: {:#04X}\nac: {:#04X}\nrx: {:#04X}\nry: {:#04X}\n--------------------\nmem_byte[pc]: {:#04X}\nmem_word[pc]: {:#06X}\n--------------------",
+        write!(f, "cycles: {}\npc: {:#06X}\nps (NVuBDIZC): {:08b}\nsp: {:#04X}\nac: {:#04X}\nrx: {:#04X}\nry: {:#04X}\n--------------------\nmem_byte[pc]: {:#04X}\nmem_ins[pc]: {}\nmem_word[pc]: {:#06X}\n--------------------",
             self.cycles,
             self.pc,
             self.ps.to_inner(),
@@ -84,6 +84,7 @@ impl std::fmt::Display for CPU6502 {
             self.rx,
             self.ry,
             self.cpu_mem.byte_at(self.pc),
+            if let Ok(ins) = self.decode(self.cpu_mem.byte_at(self.pc)) {format!("{ins:?}")} else {"None".to_string()},
             ((self.cpu_mem.byte_at(self.pc.wrapping_add(1)) as CPUWord) << 8) + self.cpu_mem.byte_at(self.pc) as CPUWord,
         )
     }

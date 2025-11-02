@@ -4,20 +4,11 @@ pub type InstructionResult = Result<CPUInstruction, String>;
 
 /// CPU instruction decoding and execution functions
 impl CPU6502 {
-    /// 1 cycle
-    /// 
-    /// Fetch the next CPUByte and decode it as the next CPU instruction.
-    pub fn decode_next_ins(&mut self) -> InstructionResult {
+    pub fn decode(&self, opcode: CPUByte) -> InstructionResult {
         use CPUInstruction::*;
         use CPUAddrMode::*;
 
-        self.push_debug_msg("decode_next_ins".to_string());
-
-        let opcode = self.fetch_next_byte();
-        self.restore_debug_msg();
-        self.push_debug_msg(format!("decode_next_ins ({opcode:#04X})"));
-
-        let ret = match opcode {
+        Ok(match opcode {
             0x00 => BRK(IMP),
             0x01 => ORA(IDX),
             0x05 => ORA(ZPG),
@@ -187,7 +178,20 @@ impl CPU6502 {
                     return Err(format!("{opcode:#04X}"))
                 }
             }
-        };
+        })
+    }
+
+    /// 1 cycle
+    /// 
+    /// Fetch the next CPUByte and decode it as the next CPU instruction.
+    pub fn decode_next_ins(&mut self) -> InstructionResult {
+        self.push_debug_msg("decode_next_ins".to_string());
+
+        let opcode = self.fetch_next_byte();
+        self.restore_debug_msg();
+        self.push_debug_msg(format!("decode_next_ins ({opcode:#04X})"));
+
+        let ret = self.decode(opcode)?;
 
         self.debug();
         self.debug_ret_ins(ret);

@@ -325,8 +325,8 @@ impl CPU6502 {
             }
             EOR(mode) => self.eor(mode),
             HLT(IMP) => { 
-                self.cycles += 1;
                 self.debug_imm("HLT".to_string());
+                self.cycles += 1;
             }
             INC(mode) => self.inc(mode),
             INX(IMP) => {

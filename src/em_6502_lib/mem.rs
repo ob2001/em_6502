@@ -6,7 +6,7 @@ pub type MemResult = Result<Mem, String>;
 impl Mem {
     /// Create new CPU memory with all bytes set to the provided value
     pub fn new_all(b: CPUByte) -> Self {
-        Self { mem: [b; CPU_MEMSIZE], debug_bytes_per_line: 25 }
+        Self { mem: [b; CPU_MEMSIZE], debug_bytes_per_line: 24 }
     }
 
     /// Create new cpu memory with all NOP instructions
@@ -149,11 +149,16 @@ impl Mem {
 
 impl std::fmt::Debug for Mem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\n{:-^1$}\n", "!!! MEMORY DUMP !!!", self.debug_bytes_per_line * 4 - 1)?;
+        write!(f, "\n{:-^1$}\n", "!!! MEMORY DUMP !!!", self.debug_bytes_per_line * 4 + 8)?;
         for (i, &byte) in self.mem.iter().enumerate() {
-            write!(f, "{:02X}, ", byte)?;
-            if i != 0 && (i + 1) % self.debug_bytes_per_line == 0 {
-                write!(f, "\n")?;
+            if i % self.debug_bytes_per_line == 0 {
+                write!(f, "[{:#06X}]: ", i)?;
+            }
+
+            if (i + 1) % self.debug_bytes_per_line != 0 {
+                write!(f, "{:02X}, ", byte)?;
+            } else {
+                write!(f, "{:02X}\n", byte)?;
             }
         }
 

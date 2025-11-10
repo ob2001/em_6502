@@ -189,8 +189,8 @@ impl CPU6502 {
         self.push_debug_msg("zpx".to_string());
         
         self.debug();
-        let addr = self.fetch_next_byte().wrapping_add(self.rx);
         self.cycles += 1;
+        let addr = self.fetch_next_byte().wrapping_add(self.rx);
 
         let ret = self.fetch_byte_at(addr as CPUWord);
 
@@ -207,8 +207,8 @@ impl CPU6502 {
         self.push_debug_msg("zpy".to_string());
         
         self.debug();
-        let addr = self.fetch_next_byte().wrapping_add(self.ry);
         self.cycles += 1;
+        let addr = self.fetch_next_byte().wrapping_add(self.ry);
 
         let ret = self.fetch_byte_at(addr as CPUWord);
 
@@ -284,8 +284,8 @@ impl CPU6502 {
         self.push_debug_msg("idx".to_string());
 
         self.debug();
-        let tmp_addr = self.fetch_next_byte().wrapping_add(self.rx);
         self.cycles += 1;
+        let tmp_addr = self.fetch_next_byte().wrapping_add(self.rx);
 
         let addr = self.fetch_word_at(tmp_addr as CPUWord);
         let ret = self.fetch_byte_at(addr);
@@ -424,8 +424,6 @@ impl CPU6502 {
         let final_val_is_negative = out & 0b1000_0000 != 0;
 
         self.ps.set_bit(BitMasks::V, (init_val_is_negative && add_val_is_negative && !final_val_is_negative) || (!init_val_is_negative && !add_val_is_negative && final_val_is_negative));
-
-        self.debug_imm(format!("check_overflow (init_val: {val1:#010b} add_val: {val2:#010b} final_val: {out:#010b})"))
     }
 }
 

@@ -217,7 +217,6 @@ impl CPU6502 {
             BCC(REL) => {
                 self.push_debug_msg("BCC".to_string());
 
-                self.debug();
                 self.branch(!self.ps.test_bit(BitMasks::C));
 
                 self.restore_debug_msg();
@@ -225,7 +224,6 @@ impl CPU6502 {
             BCS(REL) => {
                 self.push_debug_msg("BCS".to_string());
 
-                self.debug();
                 self.branch(self.ps.test_bit(BitMasks::C));
 
                 self.restore_debug_msg();
@@ -233,7 +231,6 @@ impl CPU6502 {
             BEQ(REL) => {
                 self.push_debug_msg("BEQ".to_string());
 
-                self.debug();
                 self.branch(self.ps.test_bit(BitMasks::Z));
 
                 self.restore_debug_msg();
@@ -242,7 +239,6 @@ impl CPU6502 {
             BMI(REL) => {
                 self.push_debug_msg("BMI".to_string());
 
-                self.debug();
                 self.branch(self.ps.test_bit(BitMasks::N));
 
                 self.restore_debug_msg();
@@ -250,7 +246,6 @@ impl CPU6502 {
             BNE(REL) => {
                 self.push_debug_msg("BNE".to_string());
 
-                self.debug();
                 self.branch(!self.ps.test_bit(BitMasks::Z));
 
                 self.restore_debug_msg();
@@ -258,7 +253,6 @@ impl CPU6502 {
             BPL(REL) => {
                 self.push_debug_msg("BPL".to_string());
 
-                self.debug();
                 self.branch(!self.ps.test_bit(BitMasks::N));
 
                 self.restore_debug_msg();
@@ -267,7 +261,6 @@ impl CPU6502 {
             BVC(REL) => {
                 self.push_debug_msg("BVC".to_string());
 
-                self.debug();
                 self.branch(!self.ps.test_bit(BitMasks::V));
 
                 self.restore_debug_msg();
@@ -275,7 +268,6 @@ impl CPU6502 {
             BVS(REL) => {
                 self.push_debug_msg("BVS".to_string());
 
-                self.debug();
                 self.branch(self.ps.test_bit(BitMasks::V));
 
                 self.restore_debug_msg();

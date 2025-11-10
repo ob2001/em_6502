@@ -351,21 +351,22 @@ impl CPU6502 {
             JSR(ABS) => {
                 self.push_debug_msg("JSR".to_string());
                 
-                self.push_debug_msg("buffer addr".to_string());
-                let addr = self.fetch_next_word();
-                self.cycles += 1;
-                self.debug();
-                self.restore_debug_msg();
-                
-                self.push_debug_msg("push pc - 1 to stack".to_string());
-                self.push_word(self.pc.wrapping_sub(1));
+                self.push_debug_msg("buffer addr_low".to_string());
+                let addr_low = self.fetch_next_byte();
                 self.debug();
                 self.restore_debug_msg();
 
-                self.push_debug_msg("set pc to addr".to_string());
-                self.pc = addr;
+                self.cycles += 1;   // Internal operation
+                self.debug_imm("internal operation".to_string());
+                
+                self.push_debug_msg("push current pc to stack".to_string());
+                self.push_word(self.pc);
                 self.debug();
                 self.restore_debug_msg();
+
+                let addr_high = self.fetch_next_byte();
+                self.pc = ((addr_high as CPUWord) << 8) + addr_low as CPUWord;
+                self.debug_imm("set pc to addr".to_string());
 
                 self.restore_debug_msg();
             }

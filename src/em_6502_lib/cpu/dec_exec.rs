@@ -408,11 +408,9 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
-                self.push_debug_msg("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug();
-                self.restore_debug_msg();
+                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull ac from stack".to_string());
                 self.ac = self.pull_byte();
@@ -427,11 +425,9 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
-                self.push_debug_msg("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug();
-                self.restore_debug_msg();
+                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull ps from stack".to_string());
                 self.ps = BitField::new(self.pull_byte());
@@ -448,11 +444,9 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
-                self.push_debug_msg("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug();
-                self.restore_debug_msg();
+                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull ps from stack".to_string());
                 self.ps = BitField::new(self.pull_byte());
@@ -472,14 +466,12 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
-                self.push_debug_msg("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug();
-                self.restore_debug_msg();
+                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull pc from stack".to_string());
-                self.pc = self.pull_word().wrapping_sub(1);
+                self.pc = self.pull_word();
                 self.sp = self.sp.wrapping_sub(1);
                 self.debug();
                 self.restore_debug_msg();

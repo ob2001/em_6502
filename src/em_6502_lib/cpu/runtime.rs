@@ -25,15 +25,14 @@ impl CPU6502 {
 
         self.push_debug_msg("run".to_string());
         loop {
-            let ins = self.execute_next_ins();
-            match ins {
+            match self.execute_next_ins() {
                 Err(e) => {
                     self.clear_debug_msg();
                     self.debug_imm(format!("!!! CPU halting on encountering illegal opcode: {e} !!!"));
                     panic!("\nCPU halt on encountering illegal opcode: {e}.\nTo allow CPU to pass over illegal opcodes, use `cpu.set_illegal_opcode_mode(true)`\n")
                 }
                 Ok(CPUInstruction::HLT(CPUAddrMode::IMP)) => break,
-                Ok(_) => {},
+                _ => {},
             }
 
             if self.cycle_limit > 0 && self.cycles >= self.cycle_limit {
@@ -44,7 +43,7 @@ impl CPU6502 {
         };
         self.restore_debug_msg();
 
-        self.debug_imm("!!! CPU halted!!! ".to_string());
+        self.debug_imm("!!! CPU halted !!!".to_string());
     }
 
     /// Begin CPU emulation loop without performing a reset.

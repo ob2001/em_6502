@@ -12,7 +12,6 @@ impl CPU6502 {
         self.debug_imm("reset (0 cycles)".to_string());
 
         self.pc = self.fetch_next_word();
-        self.debug_imm(format!("set_pc ({:#06X})", self.pc));
 
         self.clear_debug_msg();
     }
@@ -81,16 +80,13 @@ impl CPU6502 {
     /// 
     /// Increments pc.
     pub fn fetch_next_byte(&mut self) -> CPUByte {
-        self.push_debug_msg(format!("fetch_next_byte"));
         let ret = self.cpu_mem.byte_at(self.pc);
-
-        self.cycles += 1;
         self.pc = self.pc.wrapping_add(1);
-        self.debug();
+        self.cycles += 1;
+        self.debug_imm(format!("fetch_next_byte"));
 
         self.debug_ret_byte("fetch_next_byte", ret);
-        
-        self.restore_debug_msg();
+
         ret
     }
 
@@ -102,8 +98,14 @@ impl CPU6502 {
     /// Increments pc twice.
     pub fn fetch_next_word(&mut self) -> CPUWord {
         self.push_debug_msg("fetch_next_word".to_string());
+
+        self.push_debug_msg("low".to_string());
         let low = self.fetch_next_byte();
+        self.restore_debug_msg();
+
+        self.push_debug_msg("high".to_string());
         let high = self.fetch_next_byte();
+        self.restore_debug_msg();
         
         let ret = ((high as CPUWord) << 8) + low as CPUWord;
         self.debug_ret_word("fetch_next_word", ret);
@@ -118,10 +120,10 @@ impl CPU6502 {
     /// 
     /// Does not affect pc.
     pub fn fetch_byte_at(&mut self, addr: CPUWord) -> CPUByte {
-        self.debug_imm(format!("fetch_byte_at ({addr:#06X})"));
-        
-        self.cycles += 1;
         let  ret = self.cpu_mem.byte_at(addr);
+        self.cycles += 1;
+        self.debug_imm(format!("fetch_byte_at ({addr:#06X})"));
+
         self.debug_ret_byte("fetch_byte_at", ret);
         
         ret
@@ -136,8 +138,13 @@ impl CPU6502 {
     pub fn fetch_word_at(&mut self, addr: CPUWord) -> CPUWord {
         self.push_debug_msg(format!("fetch_word_at ({addr:#06X})"));
 
+        self.push_debug_msg("low".to_string());
         let low = self.fetch_byte_at(addr);
+        self.restore_debug_msg();
+
+        self.push_debug_msg("high".to_string());
         let high = self.fetch_byte_at(addr.wrapping_add(1));
+        self.restore_debug_msg();
         
         let ret = ((high as CPUWord) << 8).wrapping_add(low as CPUWord);
         self.debug_ret_word("fetch_word_at", ret);
@@ -153,7 +160,7 @@ impl CPU6502 {
         self.push_debug_msg("imm".to_string());
         
         let ret = self.fetch_next_byte();
-        self.debug();
+
         self.debug_ret_byte("imm", ret);
         
         self.restore_debug_msg();
@@ -168,7 +175,7 @@ impl CPU6502 {
         
         let addr = self.fetch_next_byte();
         let ret = self.fetch_byte_at(addr as CPUWord);
-        self.debug();
+
         self.debug_ret_byte("zpg", ret);
         
         self.restore_debug_msg();
@@ -183,8 +190,10 @@ impl CPU6502 {
         
         let addr = self.fetch_next_byte().wrapping_add(self.rx);
         self.cycles += 1;
-        let ret = self.fetch_byte_at(addr as CPUWord);
         self.debug();
+
+        let ret = self.fetch_byte_at(addr as CPUWord);
+
         self.debug_ret_byte("zpx", ret);
         
         self.restore_debug_msg();
@@ -199,8 +208,10 @@ impl CPU6502 {
         
         let addr = self.fetch_next_byte().wrapping_add(self.ry);
         self.cycles += 1;
-        let ret = self.fetch_byte_at(addr as CPUWord);
         self.debug();
+
+        let ret = self.fetch_byte_at(addr as CPUWord);
+
         self.debug_ret_byte("zpy", ret);
         
         self.restore_debug_msg();
@@ -215,7 +226,7 @@ impl CPU6502 {
         
         let addr = self.fetch_next_word();
         let ret = self.fetch_byte_at(addr);
-        self.debug();
+
         self.debug_ret_byte("abs", ret);
         
         self.restore_debug_msg();
@@ -233,10 +244,11 @@ impl CPU6502 {
         
         if addr / 256 > tmp_addr / 256 {
             self.cycles += 1;
+            self.debug_imm("page crossed".to_string());
         }
         
         let ret = self.fetch_byte_at(addr);
-        self.debug();
+
         self.debug_ret_byte("abx", ret);
         
         self.restore_debug_msg();
@@ -248,18 +260,19 @@ impl CPU6502 {
     /// Use Absolute,Y addressing mode to obtain argument for CPU instruction
     pub fn aby(&mut self) -> CPUByte {
         self.push_debug_msg("aby".to_string());
-        
+
         let tmp_addr = self.fetch_next_word();
         let addr = tmp_addr + self.ry as CPUWord;
-        
+
         if addr / 256 > tmp_addr / 256 {
             self.cycles += 1;
+            self.debug_imm("page crossed".to_string());
         }
-        
+
         let ret = self.fetch_byte_at(addr);
-        self.debug();
+
         self.debug_ret_byte("aby", ret);
-        
+
         self.restore_debug_msg();
         ret
     }
@@ -269,14 +282,16 @@ impl CPU6502 {
     /// Use Pre-Indexed Indirect addressing mode to obtain argument for CPU instruction
     pub fn idx(&mut self) -> CPUByte {
         self.push_debug_msg("idx".to_string());
-        
+
         let tmp_addr = self.fetch_next_byte().wrapping_add(self.rx);
         self.cycles += 1;
+        self.debug();
+
         let addr = self.fetch_word_at(tmp_addr as CPUWord);
         let ret = self.fetch_byte_at(addr);
-        self.debug();
+
         self.debug_ret_byte("idx", ret);
-        
+
         self.restore_debug_msg();
         ret
     }
@@ -286,19 +301,20 @@ impl CPU6502 {
     /// Use Post-Indexed addressing mode to obtain argument for CPU instruction
     pub fn idy(&mut self) -> CPUByte {
         self.push_debug_msg("idy".to_string());
-        
+
         let tmp_addr = self.fetch_next_byte();
         let tmp_addr = self.fetch_word_at(tmp_addr as CPUWord);
         let addr = tmp_addr.wrapping_add(self.ry as CPUWord);
-        
+
         if addr / 256 > tmp_addr / 256 {
             self.cycles += 1;
+            self.debug_imm("page crossed".to_string());
         }
-        
+
         let ret = self.fetch_byte_at(addr);
-        self.debug();
+
         self.debug_ret_byte("idy", ret);
-        
+
         self.restore_debug_msg();
         ret
     }
@@ -331,13 +347,12 @@ impl CPU6502 {
         self.push_debug_msg("pull_byte".to_string());
 
         let ret = self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord);
+        self.sp = self.sp.wrapping_add(1);
         self.cycles += 1;
         self.debug_imm(format!("retrieve val ({ret:#04x}"));
-        
-        self.sp = self.sp.wrapping_add(1);
-        self.debug_imm("dec sp".to_string());
 
         self.debug_ret_byte("pull_byte", ret);
+
         self.restore_debug_msg();
         ret
     }
@@ -349,17 +364,13 @@ impl CPU6502 {
     /// Decrements sp twice.
     pub fn push_word(&mut self, val: CPUWord) {
         let [high, low] = val.to_be_bytes();
-        
-        self.push_debug_msg(format!("push_word => store low ({val:#04x})"));
-        self.push_byte(high);
-        self.debug();
 
+        self.push_debug_msg(format!("push_word => store low ({val:#04x})"));        
+        self.push_byte(high);
         self.restore_debug_msg();
 
         self.push_debug_msg(format!("push_word => store high ({val:#04x})"));
         self.push_byte(low);
-        self.debug();
-
         self.restore_debug_msg();
     }
 
@@ -374,16 +385,13 @@ impl CPU6502 {
         
         self.push_debug_msg("high".to_string());
         let low = self.pull_byte();
-        self.debug();
         self.restore_debug_msg();
 
         self.push_debug_msg("low".to_string());
         let high = self.pull_byte();
-        self.debug();
         self.restore_debug_msg();
         
         let ret = ((high as CPUWord) << 8) + low as CPUWord;
-        self.debug();
 
         self.debug_ret_word("pull_word", ret);
 

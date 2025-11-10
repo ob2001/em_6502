@@ -80,11 +80,11 @@ impl CPU6502 {
     /// 
     /// Increments pc.
     pub fn fetch_next_byte(&mut self) -> CPUByte {
+        self.debug_imm(format!("fetch_next_byte"));
+        self.cycles += 1;
         let ret = self.cpu_mem.byte_at(self.pc);
         self.pc = self.pc.wrapping_add(1);
-        self.cycles += 1;
-        self.debug_imm(format!("fetch_next_byte"));
-
+        
         self.debug_ret_byte("fetch_next_byte", ret);
 
         ret
@@ -120,9 +120,9 @@ impl CPU6502 {
     /// 
     /// Does not affect pc.
     pub fn fetch_byte_at(&mut self, addr: CPUWord) -> CPUByte {
+        self.debug_imm(format!("fetch_byte_at ({addr:#06X})"));
         let  ret = self.cpu_mem.byte_at(addr);
         self.cycles += 1;
-        self.debug_imm(format!("fetch_byte_at ({addr:#06X})"));
 
         self.debug_ret_byte("fetch_byte_at", ret);
         
@@ -188,9 +188,9 @@ impl CPU6502 {
     pub fn zpx(&mut self) -> CPUByte {
         self.push_debug_msg("zpx".to_string());
         
+        self.debug();
         let addr = self.fetch_next_byte().wrapping_add(self.rx);
         self.cycles += 1;
-        self.debug();
 
         let ret = self.fetch_byte_at(addr as CPUWord);
 
@@ -206,9 +206,9 @@ impl CPU6502 {
     pub fn zpy(&mut self) -> CPUByte {
         self.push_debug_msg("zpy".to_string());
         
+        self.debug();
         let addr = self.fetch_next_byte().wrapping_add(self.ry);
         self.cycles += 1;
-        self.debug();
 
         let ret = self.fetch_byte_at(addr as CPUWord);
 
@@ -243,8 +243,8 @@ impl CPU6502 {
         let addr = tmp_addr + self.rx as CPUWord;
         
         if addr / 256 > tmp_addr / 256 {
-            self.cycles += 1;
             self.debug_imm("page crossed".to_string());
+            self.cycles += 1;
         }
         
         let ret = self.fetch_byte_at(addr);
@@ -265,8 +265,8 @@ impl CPU6502 {
         let addr = tmp_addr + self.ry as CPUWord;
 
         if addr / 256 > tmp_addr / 256 {
-            self.cycles += 1;
             self.debug_imm("page crossed".to_string());
+            self.cycles += 1;
         }
 
         let ret = self.fetch_byte_at(addr);
@@ -283,9 +283,9 @@ impl CPU6502 {
     pub fn idx(&mut self) -> CPUByte {
         self.push_debug_msg("idx".to_string());
 
+        self.debug();
         let tmp_addr = self.fetch_next_byte().wrapping_add(self.rx);
         self.cycles += 1;
-        self.debug();
 
         let addr = self.fetch_word_at(tmp_addr as CPUWord);
         let ret = self.fetch_byte_at(addr);
@@ -307,8 +307,8 @@ impl CPU6502 {
         let addr = tmp_addr.wrapping_add(self.ry as CPUWord);
 
         if addr / 256 > tmp_addr / 256 {
-            self.cycles += 1;
             self.debug_imm("page crossed".to_string());
+            self.cycles += 1;
         }
 
         let ret = self.fetch_byte_at(addr);
@@ -327,12 +327,12 @@ impl CPU6502 {
     pub fn push_byte(&mut self, val: CPUByte) {       
         self.push_debug_msg("push_byte".to_string());
 
+        self.debug();
         *self.cpu_mem.mut_byte_at(0x0100u16.wrapping_add(self.sp as CPUWord)) = val;
         
         // Don't need to check is stack overflows. Will likely crash process, this is correct behaviour.
         self.sp = self.sp.wrapping_sub(1);
         self.cycles += 1;
-        self.debug();
 
         self.restore_debug_msg();
     }
@@ -346,10 +346,10 @@ impl CPU6502 {
         // Don't need to check if stack underflows. Will likely crash process, this is correct behaviour.
         self.push_debug_msg("pull_byte".to_string());
 
+        self.debug();
         let ret = self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord);
         self.sp = self.sp.wrapping_add(1);
         self.cycles += 1;
-        self.debug_imm(format!("retrieve val ({ret:#04x}"));
 
         self.debug_ret_byte("pull_byte", ret);
 
@@ -384,11 +384,11 @@ impl CPU6502 {
         self.push_debug_msg("pull_word".to_string());
         
         self.push_debug_msg("high".to_string());
-        let low = self.pull_byte();
+        let high = self.pull_byte();
         self.restore_debug_msg();
 
         self.push_debug_msg("low".to_string());
-        let high = self.pull_byte();
+        let low = self.pull_byte();
         self.restore_debug_msg();
         
         let ret = ((high as CPUWord) << 8) + low as CPUWord;

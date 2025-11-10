@@ -73,6 +73,8 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for ASL"),
         };
 
+        self.debug_imm(format!("shift {} left", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
+
         let byte = match addr {
             None => &mut self.ac,
             Some(a) => self.cpu_mem.mut_byte_at(a),
@@ -82,7 +84,6 @@ impl CPU6502 {
         *byte = byte.wrapping_shl(1);
         self.cycles += 1;
         let new_byte = byte.clone();
-        self.debug_imm(format!("shifted {} left", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
         
         self.ps.set_bit(BitMasks::C, orig_byte & 0b1000_0000 != 0);
         self.update_z(self.ac);
@@ -107,14 +108,14 @@ impl CPU6502 {
         // Debug message is set and restored from calling executiong function
         let operand = self.fetch_next_byte();
         if cond {
+            self.debug_imm("branch taken".to_string());
             let orig = self.pc;
             self.pc = self.pc.wrapping_add_signed((operand as i8).into());
             self.cycles += 1;
-            self.debug_imm("branch taken".to_string());
 
             if self.pc / 256 != orig / 256 {
-                self.cycles += 1;
                 self.debug_imm("page_crossed".to_string());
+                self.cycles += 1;
             }
         }
     }
@@ -234,13 +235,13 @@ impl CPU6502 {
         };
 
         let mut byte = self.cpu_mem.byte_at(addr as CPUWord);
-        self.cycles += 1;
         self.debug_imm(format!("fetch byte at {addr:#06X} ({byte:#04X})"));
+        self.cycles += 1;
         
         byte = byte.wrapping_sub(1);
+        self.debug_imm(format!("decrement byte at {addr:#06X} -> ({byte:#04X})"));
         *self.cpu_mem.mut_byte_at(addr as CPUWord) = byte;
         self.cycles += 1;
-        self.debug_imm(format!("decrement byte at {addr:#06X} -> ({byte:#04X})"));
         
         self.ps.set_bit(BitMasks::Z, byte == 0);
         self.ps.set_bit(BitMasks::N, byte & 0b1000_0000 != 0);
@@ -284,13 +285,13 @@ impl CPU6502 {
         };
 
         let mut byte = self.cpu_mem.byte_at(addr as CPUWord);
-        self.cycles += 1;
         self.debug_imm(format!("fetch byte at {addr:#06X} ({byte:#04X})"));
+        self.cycles += 1;
 
         byte = byte.wrapping_add(1);
+        self.debug_imm(format!("increment byte at {addr:#06X} -> ({byte:#04X})"));
         *self.cpu_mem.mut_byte_at(addr as CPUWord) = byte;
         self.cycles += 1;
-        self.debug_imm(format!("increment byte at {addr:#06X} -> ({byte:#04X})"));
 
         self.ps.set_bit(BitMasks::Z, byte == 0);
         self.ps.set_bit(BitMasks::N, byte & 0b1000_0000 != 0);
@@ -398,6 +399,8 @@ impl CPU6502 {
             _ => panic!("Invalid addressing mode for LSR"),
         };
 
+        self.debug_imm(format!("shift {} right", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
+        
         let byte = match addr { 
             None => &mut self.ac,
             Some(addr) => self.cpu_mem.mut_byte_at(addr),
@@ -407,7 +410,6 @@ impl CPU6502 {
         *byte = byte.wrapping_shr(1);
         self.cycles += 1;
         let new_byte = byte.clone();
-        self.debug_imm(format!("shifted {} right", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
         
         self.ps.set_bit(BitMasks::C, orig_byte & 0b0000_0001 != 0);
         self.ps.set_bit(BitMasks::Z, new_byte == 0);
@@ -451,6 +453,8 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for ROL"),
         };
 
+        self.debug_imm(format!("rotate {} left", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
+
         let byte = match addr {
             None => &mut self.ac,
             Some(addr) => self.cpu_mem.mut_byte_at(addr),
@@ -460,7 +464,6 @@ impl CPU6502 {
         *byte = byte.wrapping_shl(1).wrapping_add(if self.ps.test_bit(BitMasks::C) {0b0000_0001} else {0});
         self.cycles += 1;
         let new_byte = byte.clone();
-        self.debug_imm(format!("rotated {} left", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
 
         self.ps.set_bit(BitMasks::C, orig_byte & 0b1000_0000 != 0);
         self.ps.set_bit(BitMasks::Z, self.ac == 0);
@@ -482,6 +485,8 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for ROR"),
         };
 
+        self.debug_imm(format!("rotate {} right", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
+
         let byte = match addr {
             None => &mut self.ac,
             Some(addr) => self.cpu_mem.mut_byte_at(addr),
@@ -491,7 +496,6 @@ impl CPU6502 {
         *byte = byte.wrapping_shr(1).wrapping_add(if self.ps.test_bit(BitMasks::C) {0b1000_0000} else {0});
         self.cycles += 1;
         let new_byte = byte.clone();
-        self.debug_imm(format!("rotated {} right", if let Some(a) = addr {format!("byte at {a}")} else {"acc".to_string()}));
 
         self.ps.set_bit(BitMasks::C, orig_byte & 0b0000_0001 != 0);
         self.ps.set_bit(BitMasks::Z, self.ac == 0);
@@ -542,9 +546,9 @@ impl CPU6502 {
             }
             ZPX => {
                 self.push_debug_msg("zpx_addr".to_string());
+                self.debug();
                 let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
                 self.cycles += 1;
-                self.debug();
                 self.debug_ret_word("zpx_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -558,27 +562,27 @@ impl CPU6502 {
             }
             ABX => {
                 self.push_debug_msg("abx_addr".to_string());
+                self.debug();
                 let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
                 self.cycles += 1;
-                self.debug();
                 self.debug_ret_word("abx_addr", ret);
                 self.restore_debug_msg();
                 ret
             },
             ABY => {
                 self.push_debug_msg("aby_addr".to_string());
+                self.debug();
                 let ret = self.fetch_next_word().wrapping_add(self.ry as CPUWord);
                 self.cycles += 1;
-                self.debug();
                 self.debug_ret_word("aby_addr", ret);
                 self.restore_debug_msg();
                 ret
             },
             IDX => {
                 self.push_debug_msg("idx_addr".to_string());
+                self.debug();
                 let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
                 self.cycles += 1;
-                self.debug();
                 let ret = self.fetch_word_at(addr);
                 self.debug_ret_word("idx_addr", ret);
                 self.restore_debug_msg();
@@ -587,9 +591,9 @@ impl CPU6502 {
             IDY => {
                 self.push_debug_msg("idy_addr".to_string());
                 let addr = self.fetch_next_byte();
+                self.debug();
                 let ret = self.fetch_word_at(addr as CPUWord).wrapping_add(self.ry as CPUWord);
                 self.cycles += 1;
-                self.debug();
                 self.debug_ret_word("idy_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -597,9 +601,9 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for STA"),
         };
 
+        self.debug_imm(format!("store ac ({:#04X}) at {addr:#06X}", self.ac));
         *self.cpu_mem.mut_byte_at(addr) = self.ac;
         self.cycles += 1;
-        self.debug_imm(format!("store ac ({:#04X}) at {addr:#06X}", self.ac));
 
         self.restore_debug_msg();
     }
@@ -618,9 +622,9 @@ impl CPU6502 {
             }
             ZPY => {
                 self.push_debug_msg("zpy_addr".to_string());
+                self.debug();
                 let addr = self.fetch_next_byte().wrapping_add(self.ry) as CPUWord;
                 self.cycles += 1;
-                self.debug();
                 self.debug_ret_word("zpy_addr", addr);
                 self.restore_debug_msg();
                 addr
@@ -635,9 +639,9 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for STX"),
         };
 
+        self.debug_imm(format!("store rx ({:#04X}) at {addr:#06X}", self.rx));
         *self.cpu_mem.mut_byte_at(addr) = self.ac;
         self.cycles += 1;
-        self.debug_imm(format!("store rx ({:#04X}) at {addr:#06X}", self.rx));
 
         self.restore_debug_msg();
     }
@@ -656,9 +660,9 @@ impl CPU6502 {
             }
             ZPX => {
                 self.push_debug_msg("zpx_addr".to_string());
+                self.debug();
                 let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
                 self.cycles += 1;
-                self.debug();
                 self.debug_ret_word("zpg_addr", addr);
                 self.restore_debug_msg();
                 addr
@@ -673,9 +677,9 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for STY"),
         };
 
+        self.debug_imm(format!("store ry ({:#04X}) at {addr:#06X}", self.ry));
         *self.cpu_mem.mut_byte_at(addr) = self.ac;
         self.cycles += 1;
-        self.debug_imm(format!("store ry ({:#04X}) at {addr:#06X}", self.ry));
 
         self.restore_debug_msg();
     }

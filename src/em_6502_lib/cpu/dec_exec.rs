@@ -217,24 +217,24 @@ impl CPU6502 {
             BCC(REL) => {
                 self.push_debug_msg("BCC".to_string());
 
-                self.branch(!self.ps.test_bit(BitMasks::C));
                 self.debug();
+                self.branch(!self.ps.test_bit(BitMasks::C));
 
                 self.restore_debug_msg();
             }
             BCS(REL) => {
                 self.push_debug_msg("BCS".to_string());
 
-                self.branch(self.ps.test_bit(BitMasks::C));
                 self.debug();
+                self.branch(self.ps.test_bit(BitMasks::C));
 
                 self.restore_debug_msg();
             }
             BEQ(REL) => {
                 self.push_debug_msg("BEQ".to_string());
 
-                self.branch(self.ps.test_bit(BitMasks::Z));
                 self.debug();
+                self.branch(self.ps.test_bit(BitMasks::Z));
 
                 self.restore_debug_msg();
             }
@@ -242,24 +242,24 @@ impl CPU6502 {
             BMI(REL) => {
                 self.push_debug_msg("BMI".to_string());
 
-                self.branch(self.ps.test_bit(BitMasks::N));
                 self.debug();
+                self.branch(self.ps.test_bit(BitMasks::N));
 
                 self.restore_debug_msg();
             }
             BNE(REL) => {
                 self.push_debug_msg("BNE".to_string());
 
-                self.branch(!self.ps.test_bit(BitMasks::Z));
                 self.debug();
+                self.branch(!self.ps.test_bit(BitMasks::Z));
 
                 self.restore_debug_msg();
             }
             BPL(REL) => {
                 self.push_debug_msg("BPL".to_string());
 
-                self.branch(!self.ps.test_bit(BitMasks::N));
                 self.debug();
+                self.branch(!self.ps.test_bit(BitMasks::N));
 
                 self.restore_debug_msg();
             }
@@ -267,76 +267,76 @@ impl CPU6502 {
             BVC(REL) => {
                 self.push_debug_msg("BVC".to_string());
 
-                self.branch(!self.ps.test_bit(BitMasks::V));
                 self.debug();
+                self.branch(!self.ps.test_bit(BitMasks::V));
 
                 self.restore_debug_msg();
             }
             BVS(REL) => {
                 self.push_debug_msg("BVS".to_string());
 
-                self.branch(self.ps.test_bit(BitMasks::V));
                 self.debug();
+                self.branch(self.ps.test_bit(BitMasks::V));
 
                 self.restore_debug_msg();
             }
             CLC(IMP) => {
+                self.debug_imm("CLC => clear carry bit".to_string());
                 self.ps.set_bit(BitMasks::C, false);
                 self.cycles += 1;
-                self.debug_imm("CLC => clear carry bit".to_string());
             }
             CLD(IMP) => {
+                self.debug_imm("CLD => clear decimal mode bit".to_string());
                 self.ps.set_bit(BitMasks::D, false);
                 self.cycles += 1;
-                self.debug_imm("CLD => clear decimal mode bit".to_string());
             }
             CLI(IMP) => {
+                self.debug_imm("CLI => clear interrupt disable bit".to_string());
                 self.ps.set_bit(BitMasks::I, false);
                 self.cycles += 1;
-                self.debug_imm("CLI => clear interrupt disable bit".to_string());
             }
             CLV(IMP) => {
+                self.debug_imm("CLV => clear overflow bit".to_string());
                 self.ps.set_bit(BitMasks::V, false);
                 self.cycles += 1;
-                self.debug_imm("CLV => clear overflow bit".to_string());
             }
             CMP(mode) => self.cmp(mode),
             CPX(mode) => self.cpx(mode),
             CPY(mode) => self.cpy(mode),
             DEC(mode) => self.dec(mode),
             DEX(IMP) => {
+                self.debug_imm("DEX => dec rx, update ps".to_string());
                 self.rx = self.rx.wrapping_sub(1);
                 self.ps.set_bit(BitMasks::Z, self.rx == 0);
                 self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
                 self.cycles += 1;
-                self.debug_imm("DEX => dec rx, update ps".to_string());
             }
             DEY(IMP) => {
+                self.debug_imm("DEY => dec ry, update ps".to_string());
                 self.ry = self.ry.wrapping_sub(1);
                 self.ps.set_bit(BitMasks::Z, self.ry == 0);
                 self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
                 self.cycles += 1;
-                self.debug_imm("DEY => dec ry, update ps".to_string());
             }
             EOR(mode) => self.eor(mode),
             HLT(IMP) => { 
-                self.cycles += 1;
                 self.debug_imm("HLT".to_string());
+                self.cycles += 1;
             }
             INC(mode) => self.inc(mode),
             INX(IMP) => {
+                self.debug_imm("INX => inc rx, update ps".to_string());
                 self.rx = self.rx.wrapping_add(1);
                 self.ps.set_bit(BitMasks::Z, self.rx == 0);
                 self.ps.set_bit(BitMasks::Z, self.rx & 0b1000_0000 != 0);
                 self.cycles += 1;
-                self.debug_imm("INX => inc rx, update ps".to_string());
             }
             INY(IMP) => {
+                self.debug_imm("INY => inc ry, update ps".to_string());
                 self.ry = self.ry.wrapping_add(1);
                 self.ps.set_bit(BitMasks::Z, self.ry == 0);
                 self.ps.set_bit(BitMasks::Z, self.ry & 0b1000_0000 != 0);
                 self.cycles += 1;
-                self.debug_imm("INY => inc ry, update ps".to_string());
             }
             JMP(mode) => self.jmp(mode),
             JSR(ABS) => {
@@ -346,8 +346,8 @@ impl CPU6502 {
                 let addr_low = self.fetch_next_byte();
                 self.restore_debug_msg();
 
-                self.cycles += 1;   // Internal operation
                 self.debug_imm("internal operation".to_string());
+                self.cycles += 1;   // Internal operation
                 
                 self.push_debug_msg("push current pc to stack".to_string());
                 self.push_word(self.pc);
@@ -365,8 +365,8 @@ impl CPU6502 {
             LDY(mode) => self.ldy(mode),
             LSR(mode) => self.lsr(mode),
             NOP(IMP) => { 
-                self.cycles += 1; 
                 self.debug_imm("NOP".to_string());
+                self.cycles += 1; 
             }
             ORA(mode) => self.ora(mode),
             PHA(IMP) => {
@@ -396,9 +396,9 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
+                self.debug_imm("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull ac from stack".to_string());
                 self.ac = self.pull_byte();
@@ -412,9 +412,9 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
+                self.debug_imm("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull ps from stack".to_string());
                 self.ps = BitField::new(self.pull_byte());
@@ -430,9 +430,9 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
+                self.debug_imm("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull ps from stack".to_string());
                 self.ps = BitField::new(self.pull_byte());
@@ -450,9 +450,9 @@ impl CPU6502 {
                 self.fetch_next_byte();
                 self.pc = self.pc.wrapping_sub(1);
 
+                self.debug_imm("inc sp".to_string());
                 self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
-                self.debug_imm("inc sp".to_string());
 
                 self.push_debug_msg("pull pc from stack".to_string());
                 self.pc = self.pull_word();
@@ -467,62 +467,62 @@ impl CPU6502 {
             }
             SBC(mode) => self.sbc(mode),
             SEC(IMP) => {
+                self.debug_imm("SEC => set carry bit".to_string());
                 self.ps.set_bit(BitMasks::C, true);
                 self.cycles += 1;
-                self.debug_imm("SEC => set carry bit".to_string());
             }
             SED(IMP) => {
+                self.debug_imm("SED => set decimal mode bit".to_string());
                 self.ps.set_bit(BitMasks::D, true);
                 self.cycles += 1;
-                self.debug_imm("SED => set decimal mode bit".to_string());
             }
             SEI(IMP) => {
+                self.debug_imm("SEI => set interrupt disable bit".to_string());
                 self.ps.set_bit(BitMasks::I, true);
                 self.cycles += 1;
-                self.debug_imm("SEI => set interrupt disable bit".to_string());
             }
             STA(mode) => self.sta(mode),
             STX(mode) => self.stx(mode),
             STY(mode) => self.sty(mode),
             TAX(IMP) => {
+                self.debug_imm("TAX => set rx to ac".to_string());
                 self.rx = self.ac;
                 self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
                 self.ps.set_bit(BitMasks::Z, self.rx == 0);
                 self.cycles += 1;
-                self.debug_imm("TAX => set rx to ac".to_string());
             }
             TAY(IMP) => {
+                self.debug_imm("TAY => set ry to ac".to_string());
                 self.ry = self.ac;
                 self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
                 self.ps.set_bit(BitMasks::Z, self.ry == 0);
                 self.cycles += 1;
-                self.debug_imm("TAY => set ry to ac".to_string());
             }
             TSX(IMP) => {
+                self.debug_imm("TSX => set rx to sp".to_string());
                 self.rx = self.sp;
                 self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
                 self.ps.set_bit(BitMasks::Z, self.rx == 0);
                 self.cycles += 1;
-                self.debug_imm("TSX => set rx to sp".to_string());
             }
             TXA(IMP) => {
+                self.debug_imm("TXA => set ac to rx".to_string());
                 self.ac = self.rx;
                 self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
                 self.ps.set_bit(BitMasks::Z, self.ac == 0);
                 self.cycles += 1;
-                self.debug_imm("TXA => set ac to rx".to_string());
             }
             TXS(IMP) => {
+                self.debug_imm("TXS => set sp to rx".to_string());
                 self.sp = self.rx;
                 self.cycles += 1;
-                self.debug_imm("TXS => set sp to rx".to_string());
             }
             TYA(IMP) => {
+                self.debug_imm("TYA => set ac to ry".to_string());
                 self.ac = self.ry;
                 self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
                 self.ps.set_bit(BitMasks::Z, self.ac == 0);
                 self.cycles += 1;
-                self.debug_imm("TYA => set ac to ry".to_string());
             }
             // Shouldn't get here
             _ => return Err(format!("Unimplemented instruction: {ins:?}")),

@@ -359,10 +359,13 @@ impl CPU6502 {
                 
                 self.push_debug_msg("push pc - 1 to stack".to_string());
                 self.push_word(self.pc.wrapping_sub(1));
+                self.debug();
                 self.restore_debug_msg();
 
+                self.push_debug_msg("set pc to addr".to_string());
                 self.pc = addr;
-                self.debug_imm("set pc to addr".to_string());
+                self.debug();
+                self.restore_debug_msg();
 
                 self.restore_debug_msg();
             }
@@ -377,10 +380,11 @@ impl CPU6502 {
             ORA(mode) => self.ora(mode),
             PHA(IMP) => {
                 self.push_debug_msg("PHA".to_string());
+                self.fetch_next_byte();
+                self.pc = self.pc.wrapping_sub(1);
 
                 self.push_debug_msg("push ac to stack".to_string());
                 self.push_byte(self.ac);
-                self.cycles += 1;
                 self.debug();
                 self.restore_debug_msg();
 
@@ -388,10 +392,11 @@ impl CPU6502 {
             }
             PHP(IMP) => {
                 self.push_debug_msg("PHP".to_string());
+                self.fetch_next_byte();
+                self.pc = self.pc.wrapping_sub(1);
 
                 self.push_debug_msg("push ps to stack".to_string());
                 self.push_byte(self.ps.to_inner());
-                self.cycles += 1;
                 self.debug();
                 self.restore_debug_msg();
 
@@ -399,52 +404,86 @@ impl CPU6502 {
             }
             PLA(IMP) => {
                 self.push_debug_msg("PLA".to_string());
+                self.fetch_next_byte();
+                self.pc = self.pc.wrapping_sub(1);
 
-                self.push_debug_msg("pull ac from stack".to_string());
-                self.ac = self.pull_byte();
+                self.push_debug_msg("inc sp".to_string());
+                self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
                 self.debug();
                 self.restore_debug_msg();
-                
+
+                self.push_debug_msg("pull ac from stack".to_string());
+                self.ac = self.pull_byte();
+                self.sp = self.sp.wrapping_sub(1);
+                self.debug();
+                self.restore_debug_msg();
+
                 self.restore_debug_msg();
             }
             PLP(IMP) => {
                 self.push_debug_msg("PLP".to_string());
+                self.fetch_next_byte();
+                self.pc = self.pc.wrapping_sub(1);
 
-                self.push_debug_msg("pull ps from stack".to_string());
-                self.ps = BitField::new(self.pull_byte());
+                self.push_debug_msg("inc sp".to_string());
+                self.sp = self.sp.wrapping_add(1);
                 self.cycles += 1;
                 self.debug();
                 self.restore_debug_msg();
 
+                self.push_debug_msg("pull ps from stack".to_string());
+                self.ps = BitField::new(self.pull_byte());
+                self.sp = self.sp.wrapping_sub(1);
+                self.debug();
+                self.restore_debug_msg();
+                
                 self.restore_debug_msg();
             }
             ROL(mode) => self.rol(mode),
             ROR(mode) => self.ror(mode),
             RTI(IMP) => {
                 self.push_debug_msg("RTI".to_string());
+                self.fetch_next_byte();
+                self.pc = self.pc.wrapping_sub(1);
+
+                self.push_debug_msg("inc sp".to_string());
+                self.sp = self.sp.wrapping_add(1);
+                self.cycles += 1;
+                self.debug();
+                self.restore_debug_msg();
 
                 self.push_debug_msg("pull ps from stack".to_string());
                 self.ps = BitField::new(self.pull_byte());
                 self.debug();
                 self.restore_debug_msg();
-
+                
                 self.push_debug_msg("pull pc from stack".to_string());
-                self.cycles -= 1;
                 self.pc = self.pull_word();
+                self.sp = self.sp.wrapping_sub(1);
                 self.debug();
                 self.restore_debug_msg();
-
+                
                 self.restore_debug_msg();
             }
             RTS(IMP) => {
                 self.push_debug_msg("RTS".to_string());
+                self.fetch_next_byte();
+                self.pc = self.pc.wrapping_sub(1);
 
-                self.push_debug_msg("pull pc from stack, sub 1".to_string());
-                self.pc = self.pull_word().wrapping_sub(1);
+                self.push_debug_msg("inc sp".to_string());
+                self.sp = self.sp.wrapping_add(1);
+                self.cycles += 1;
+                self.debug();
                 self.restore_debug_msg();
 
-                self.push_debug_msg("fetch and discard next byte".to_string());
+                self.push_debug_msg("pull pc from stack".to_string());
+                self.pc = self.pull_word().wrapping_sub(1);
+                self.sp = self.sp.wrapping_sub(1);
+                self.debug();
+                self.restore_debug_msg();
+
+                self.push_debug_msg("inc pc".to_string());
                 self.fetch_next_byte();
                 self.restore_debug_msg();
 

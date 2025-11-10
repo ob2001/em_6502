@@ -127,8 +127,10 @@ impl CPU6502 {
     /// Implements functionality of the BRK Instruction.
     pub fn brk(&mut self) {
         self.push_debug_msg("BRK".to_string());
+        self.fetch_next_byte();
 
         self.push_debug_msg("push_pc".to_string());
+        self.ps.set_bit(BitMasks::B, true);
         self.push_word(self.pc);
         self.restore_debug_msg();
 
@@ -136,14 +138,11 @@ impl CPU6502 {
         self.push_byte(self.ps.to_inner());
         self.restore_debug_msg();
 
-        self.ps.set_bit(BitMasks::B, true);
-        self.cycles += 1;
-
         self.push_debug_msg("jmp_to_loc_at_irq_vector".to_string());
         self.pc = self.fetch_word_at(0xFFFE);
+        self.debug();
         self.restore_debug_msg();
 
-        self.debug();
         self.restore_debug_msg();
     }
 

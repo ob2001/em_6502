@@ -82,14 +82,16 @@ impl CPU6502 {
     /// 
     /// Increments pc.
     pub fn fetch_next_byte(&mut self) -> CPUByte {
-        self.debug_imm(format!("fetch_next_byte"));
+        self.push_debug_msg(format!("fetch_next_byte"));
         let ret = self.cpu_mem.byte_at(self.pc);
 
         self.cycles += 1;
         self.pc = self.pc.wrapping_add(1);
+        self.debug();
 
         self.debug_ret_byte("fetch_next_byte", ret);
         
+        self.restore_debug_msg();
         ret
     }
 
@@ -100,20 +102,14 @@ impl CPU6502 {
     /// 
     /// Increments pc twice.
     pub fn fetch_next_word(&mut self) -> CPUWord {
-        self.debug_imm("fetch_next_word".to_string());
-        let low = self.cpu_mem.byte_at(self.pc);
-
-        self.cycles += 1;
-        self.pc += 1;
-
-        let high = self.cpu_mem.byte_at(self.pc);
-        
-        self.cycles += 1;
-        self.pc += 1;
+        self.push_debug_msg("fetch_next_word".to_string());
+        let low = self.fetch_next_byte();
+        let high = self.fetch_next_byte();
         
         let ret = ((high as CPUWord) << 8) + low as CPUWord;
         self.debug_ret_word("fetch_next_word", ret);
         
+        self.restore_debug_msg();
         ret
     }
 
@@ -140,13 +136,9 @@ impl CPU6502 {
     /// Does not affect pc.
     pub fn fetch_word_at(&mut self, addr: CPUWord) -> CPUWord {
         self.push_debug_msg(format!("fetch_word_at ({addr:#06X})"));
-        self.debug();
 
-        let low = self.cpu_mem.byte_at(addr);
-        self.cycles += 1;
-
-        let high = self.cpu_mem.byte_at(addr.wrapping_add(1));
-        self.cycles += 1;
+        let low = self.fetch_byte_at(addr);
+        let high = self.fetch_byte_at(addr.wrapping_add(1));
         
         let ret = ((high as CPUWord) << 8).wrapping_add(low as CPUWord);
         self.debug_ret_word("fetch_word_at", ret);
@@ -320,18 +312,17 @@ impl CPU6502 {
     pub fn push_byte(&mut self, val: CPUByte) {       
         self.push_debug_msg("push_byte".to_string());
 
-        *self.cpu_mem.mut_byte_at(0x0100 + self.sp as CPUWord) = val;
-        self.cycles += 1;
-        self.debug_imm(format!("push val ({val:#04x})"));
-
+        *self.cpu_mem.mut_byte_at(0x0100u16.wrapping_add(self.sp as CPUWord)) = val;
+        
         // Don't need to check is stack overflows. Will likely crash process, this is correct behaviour.
         self.sp = self.sp.wrapping_sub(1);
-        self.debug_imm("inc sp".to_string());
+        self.cycles += 1;
+        self.debug();
 
         self.restore_debug_msg();
     }
 
-    /// 2 cycles
+    /// 1 cycle
     /// 
     /// Pulls (pops) the last-pushed CPUByte value from the stack at the memory location indicated by sp (- 1).
     /// 
@@ -340,12 +331,12 @@ impl CPU6502 {
         // Don't need to check if stack underflows. Will likely crash process, this is correct behaviour.
         self.push_debug_msg("pull_byte".to_string());
 
+        let ret = self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord);
+        self.cycles += 1;
+        self.debug_imm(format!("retrieve val ({ret:#04x}"));
+        
         self.sp = self.sp.wrapping_add(1);
         self.debug_imm("dec sp".to_string());
-
-        let ret = self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord);
-        self.cycles += 2;
-        self.debug_imm(format!("retrieve val ({ret:#04x}"));
 
         self.debug_ret_byte("pull_byte", ret);
         self.restore_debug_msg();
@@ -361,34 +352,34 @@ impl CPU6502 {
         let [high, low] = val.to_be_bytes();
         
         self.push_debug_msg(format!("push_word => store low ({val:#04x})"));
-        self.push_byte(low);
+        self.push_byte(high);
         self.debug();
 
         self.restore_debug_msg();
 
         self.push_debug_msg(format!("push_word => store high ({val:#04x})"));
-        self.push_byte(high);
+        self.push_byte(low);
         self.debug();
 
         self.restore_debug_msg();
     }
 
-    /// 4 cycles
+    /// 2 cycles
     /// 
     /// Pulls (pops) the two last-pushed CPUByte values from the stack starting 
-    /// at the memory location indicated by sp (- 1).
+    /// at the memory location indicated by sp.
     /// 
     /// Increments sp twice.
     pub fn pull_word(&mut self) -> CPUWord {        
         self.push_debug_msg("pull_word".to_string());
         
         self.push_debug_msg("high".to_string());
-        let high = self.pull_byte();
+        let low = self.pull_byte();
         self.debug();
         self.restore_debug_msg();
 
         self.push_debug_msg("low".to_string());
-        let low = self.pull_byte();
+        let high = self.pull_byte();
         self.debug();
         self.restore_debug_msg();
         

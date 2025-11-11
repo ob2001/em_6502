@@ -44,7 +44,17 @@ fn main() {
 }
 
 fn print_help() {
-    todo!("program usage information to be implemented")
+    let line_width = 72;
+    println!("{:-^72}", "Usage");
+    println!(" > em_6502 [d/-d/--dbg/--debug | i/-i/--int/--interactive | h/-h/--help]\n");
+    print_left_centre_pad_right("[d/.../--debug]:", " ", "Run program in debug mode. Used in development.", line_width);
+    print_left_centre_pad_right("[i/.../--interactive]:", " ", "Run program in interactive mode. For general use.", line_width);
+    print_left_centre_pad_right("[h/.../--help]:", " ", "Display this help menu.", line_width);
+    println!("{:-^72}", "");
+}
+
+fn print_left_centre_pad_right(left: &str, pad: &str, right: &str, width: usize) {
+    println!("{}{}{}", left, str::repeat(pad, width - left.len() - right.len()), right);
 }
 
 fn interactive() -> std::io::Result<()> {

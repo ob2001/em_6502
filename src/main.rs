@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use std::io;
 use crossterm::{
     ExecutableCommand,
@@ -16,7 +18,7 @@ use em_6502::{cpu::CPU6502, mem::Mem};
 fn main() {
     if let Some(mode) = std::env::args().nth(1) {
         match mode.as_str() {
-            "d" | "-d" | "--dbg" | "--debug" => {
+            "-d" | "--dbg" => {
                 let mut cpu = CPU6502::new_with_mem_from_file("in_sample_2.txt".to_string()).unwrap();
                 cpu.set_allow_hlt(true);
                 cpu.set_illegal_opcode_mode(true);
@@ -29,10 +31,10 @@ fn main() {
                     println!("{:?}", cpu);
                 }
             },
-            "i" | "-i" | "--int" | "--interactive" => {
+            "-i" | "--int" => {
                 _ = interactive();
             },
-            "h" | "-h" | "--help" => {
+            "-h" | "--help" => {
                 print_help();
                 return
             }
@@ -44,13 +46,14 @@ fn main() {
 }
 
 fn print_help() {
-    let line_width = 72;
-    println!("{:-^72}", "Usage");
-    println!(" > em_6502 [d/-d/--dbg/--debug | i/-i/--int/--interactive | h/-h/--help]\n");
-    print_left_centre_pad_right("[d/.../--debug]:", " ", "Run program in debug mode. Used in development.", line_width);
-    print_left_centre_pad_right("[i/.../--interactive]:", " ", "Run program in interactive mode. For general use.", line_width);
-    print_left_centre_pad_right("[h/.../--help]:", " ", "Display this help menu.", line_width);
-    println!("{:-^72}", "");
+    let line_width = 46;
+    println!("{:-^46}", "Usage");
+    println!(" > em_6502 [-d/--dbg | -i/--int | -h/--help]\n");
+    print_left_centre_pad_right("[-d/--dbg]:", " ", "Debug mode. Used in development.", line_width);
+    print_left_centre_pad_right("[-i/--int]:", " ", "Interactive mode. For general use.", line_width);
+    println!();
+    print_left_centre_pad_right("[-h/--help]:", " ", "Display this help menu.", line_width);
+    println!("{:-^46}", "");
 }
 
 fn print_left_centre_pad_right(left: &str, pad: &str, right: &str, width: usize) {
@@ -94,8 +97,8 @@ fn interactive() -> std::io::Result<()> {
             Ok(0) => exit = true,
             Ok(1) => cpu = new_cpu().unwrap(),
             Ok(2) => edit_cpu(&mut cpu),
-            Ok(3) => run_cpu_steps(),
-            Ok(4) => run_cpu_continuous(),
+            Ok(3) => run_cpu_steps(&mut cpu),
+            Ok(4) => run_cpu_continuous(&mut cpu),
             Ok(5) => print_to_file(&cpu).unwrap(),
             _ => { stdout.execute(Print(format!("{} is not a valid option\n", buf_in.trim())))?; },
         }
@@ -165,12 +168,12 @@ fn edit_cpu(cpu: &mut CPU6502) {
     todo!("interactive cpu editing to be implemented");
 }
 
-fn run_cpu_steps() {
+fn run_cpu_steps(cpu: &mut CPU6502) {
     // todo
     todo!("running CPU in step mode to be implemented");
 }
 
-fn run_cpu_continuous() {
+fn run_cpu_continuous(cpu: &mut CPU6502) {
     // todo
     todo!("running CPU in continuous mode to be implemented")
 }

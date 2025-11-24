@@ -76,7 +76,7 @@ fn interactive() -> std::io::Result<()> {
         "Run current CPU continuously",
         "Log current CPU and memory state to file",
     ];
-    let mut cpu = CPU6502::new();
+    let mut cpu = CPU6502::default();
     
     while !exit {
         stdout.execute(Clear(ClearType::All))?
@@ -111,7 +111,7 @@ fn new_cpu() -> io::Result<CPU6502> {
     let mut stdout = io::stdout();
     let mut valid = false;
     let mut buf_in = String::new();
-    let cpu = CPU6502::new();
+    let cpu = CPU6502::default();
 
     let options = vec![
         "Finish",
@@ -137,7 +137,7 @@ fn new_cpu() -> io::Result<CPU6502> {
 
         match buf_in.trim().parse::<usize>() {
             Ok(0) => {},
-            Ok(1) => return Ok(CPU6502::new()),
+            Ok(1) => return Ok(CPU6502::default()),
             Ok(2) => return Ok(CPU6502::new_with_mem(Mem::new_nops())),
             Ok(3) => return Ok(CPU6502::new_with_mem(Mem::new_hlts())),
             Ok(4) => {

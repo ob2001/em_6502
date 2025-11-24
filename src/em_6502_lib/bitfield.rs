@@ -1,8 +1,10 @@
 use crate::bitmasks::BitMasks;
 
+/// Struct representing a bitfield of 8 bits
 #[derive(Copy, Clone)]
 pub struct BitField(u8);
 
+/// Struct to allow mutalbe bitwise interaction with BitField
 #[derive(Copy, Clone)]
 pub struct BitsMut([bool; 8]);
 

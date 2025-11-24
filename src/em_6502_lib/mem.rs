@@ -14,12 +14,12 @@ impl Mem {
         Self::new_all(0xEA)
     }
 
-    /// Create new cpu memory with all (illegal) HLT instructions
+    /// Create new cpu memory with all (*illegal) HLT instructions
     pub fn new_hlts() -> Self {
         Self::new_all(0xFF)
     }
 
-    /// Return new zeroed cpu memory with `code` inserted in range `mem[idx]` - `mem[idx + code.len()`.
+    /// Create new zeroed cpu memory with `code` inserted in range `mem[idx]` - `mem[idx + code.len()`.
     pub fn new_nops_with_code_at(code: &[CPUByte], idx: usize) -> MemResult {
         if idx > CPU_MEMSIZE {
             Err("Error: code insertion point out of memory bounds".to_string())
@@ -36,6 +36,7 @@ impl Mem {
         }
     }
 
+    /// Create new cpu memory of all HLTs with `code` inserted in range `mem[idx]` - `mem[idx] + code.len()`.
     pub fn new_hlts_with_code_at(code: &[CPUByte], idx: usize) -> MemResult {
         if idx > CPU_MEMSIZE {
             Err("Error: code insertion point out of memory bounds".to_string())

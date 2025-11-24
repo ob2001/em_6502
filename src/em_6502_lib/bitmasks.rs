@@ -1,6 +1,6 @@
 use std::ops::{BitAnd, BitOr, BitXor};
 
-/// Enum to
+/// Enum to simplify manipulating CPU bitflags
 #[derive(Copy, Clone, PartialEq, PartialOrd)]
 pub enum BitMasks {
     /// Carry flag mask

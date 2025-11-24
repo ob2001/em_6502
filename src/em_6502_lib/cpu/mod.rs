@@ -33,7 +33,7 @@ pub enum CPUInstruction {
     DEY(CPUAddrMode),
     EOR(CPUAddrMode),
 
-    /// Not part of CPU spec. Added to halt execution for testing
+    /// Not part of CPU spec. Added to gracefully halt emulation.
     HLT(CPUAddrMode),
 
     INC(CPUAddrMode),
@@ -101,6 +101,8 @@ pub enum CPUAddrMode {
 }
 
 pub struct CPU6502 {
+    /// Internal
+    /// 
     /// Program counter
     /// 
     /// Points to the next instruction to be executed. The value
@@ -112,6 +114,8 @@ pub struct CPU6502 {
     /// by returning from a subroutine or interrupt.
     pc: CPUWord,
 
+    /// Internal
+    /// 
     /// Stack pointer
     /// 
     /// Points to CPU memory range 0x0100 - 0x01ff which is used as the CPU's stack.
@@ -124,6 +128,8 @@ pub struct CPU6502 {
     /// popping operations and will most likely result in the error crashing.
     sp: CPUByte,
 
+    /// Internal
+    /// 
     /// Accumulator
     /// 
     /// The 8 bit accumulator is used in all arithmetic and logical operations (with the
@@ -134,6 +140,8 @@ pub struct CPU6502 {
     /// efficient optimisation of its use is a key feature of time critical routines.
     ac: CPUByte,
 
+    /// Internal
+    /// 
     /// Index register X
     /// 
     /// The 8 bit index register is most commonly used to hold counters or offsets for
@@ -144,6 +152,8 @@ pub struct CPU6502 {
     /// pointer or change its value.
     rx: CPUByte,
 
+    /// Internal
+    /// 
     /// Index register Y
     /// 
     /// The Y register is similar to the X register in that it is available for holding counter
@@ -151,6 +161,8 @@ pub struct CPU6502 {
     /// operations as well as increments and decrements. It has no special functions.
     ry: CPUByte,
 
+    /// Internal
+    /// 
     /// Processor status (bitfield):
     /// - Bit 0: Carry flag: The carry flag is set if the last operation caused an overflow from
     /// bit 7 of the result or an underflow from bit 0. This condition is set during arithmetic,
@@ -171,6 +183,8 @@ pub struct CPU6502 {
     /// - Bit 7: Negative flag: Set if the result of the last operation had bit 7 set to one.
     ps: BitField,
 
+    /// Internal
+    /// 
     /// Counter incremented to emulate CPU clock cycles
     cycles: usize,
 
@@ -182,7 +196,12 @@ pub struct CPU6502 {
     /// - 0xFFFE/0xFFFF: Location of BRK/interrupt request handler
     cpu_mem: Mem,
 
+    /// Flag to disable or enbable debug output during execution
     dbg: bool,
+
+    /// Internal
+    /// 
+    /// Used for debug message formatting to track processor execution state
     debug_msg: Vec<String>,
 
     /// Defaults to `true`.
@@ -209,10 +228,10 @@ pub struct CPU6502 {
     cycle_limit: usize,
 }
 
-/// CPU creation/setup functions, do not interact with runtime (No CPU cycles)
+/// CPU creation/setup functions. These do not interact with runtime (No CPU cycles)
 impl CPU6502 {
     /// Create a new CPU6502 with registers set to defaults and zeroed memory
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         CPU6502 { 
             pc: 0xFFFC,
             sp: 255,
@@ -230,13 +249,14 @@ impl CPU6502 {
         }
     }
 
-    /// Create a new CPU6502 with memory as specified in `mem`
+    /// Create a new CPU6502 with memory `mem`
     pub fn new_with_mem(mem: Mem) -> Self {
-        let mut cpu = Self::new();
+        let mut cpu = Self::default();
         cpu.flash_mem(mem);
         cpu
     }
 
+    /// Create a new CPU6502 with memory as specified in specification file `mem_file`
     pub fn new_with_mem_from_file(mem_file: String) -> Result<Self, String> {
         if let Ok(mem) = Mem::new_from_file(mem_file.clone()) {
             Ok(Self::new_with_mem(mem))
@@ -245,7 +265,7 @@ impl CPU6502 {
         }
     }
 
-    /// Sets the `allow_hlt` field of the CPU.
+    /// Set the `allow_hlt` field of the CPU.
     /// 
     /// When `allow_hlt == false` CPU will treat HLT opcode (0xFF) as any other illegal opcode.
     /// 
@@ -254,7 +274,7 @@ impl CPU6502 {
         self.allow_hlt = mode;
     }
 
-    /// Sets the `illegal_opcode_mode` field of the CPU.
+    /// Set the `illegal_opcode_mode` field of the CPU.
     /// 
     /// When `illegal_opcode_mode == false` CPU will panic on encountering an illegal opcode 
     /// (except HLT if separately enabled).
@@ -265,7 +285,7 @@ impl CPU6502 {
         self.illegal_opcode_mode = mode;
     }
 
-    /// Sets the `cycle_limit` field of the CPU.
+    /// Set the `cycle_limit` field of the CPU.
     /// 
     /// CPU will halt before decoding next instruction if `cycle_count >= cycle_limit`.
     /// 

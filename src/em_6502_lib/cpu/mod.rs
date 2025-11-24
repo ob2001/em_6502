@@ -5,7 +5,7 @@ pub mod dec_exec;
 pub mod ins;
 pub mod runtime;
 
-/// 56 spec instructions, +1 added instruction (HLT) for debugging
+/// 56 instructions from CPU spec, +1 added instruction (HLT) for debugging
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CPUInstruction {
     /// 2 - 6 cycles
@@ -44,9 +44,9 @@ pub enum CPUInstruction {
     /// 3 - 4 cycles
     /// 
     /// This instruction is used to test if one or more bits are set in a target memory
-    /// location. The mask pattern in Acc is ANDed with the value in memory to set or
-    /// clear the zero flag, but the result is not kept. Bits 7 and 6 of the value from
-    /// memory are copied into the N and V flags.
+    /// location. The mask pattern in the accumulator is ANDed with the value in memory
+    /// to set or clear the zero flag, but the result is not kept. Bits 7 and 6 of the 
+    /// value from memory are copied into the N and V flags.
     BIT(CPUAddrMode),
     /// 2 - 4 cycles
     /// 
@@ -204,13 +204,15 @@ pub enum CPUInstruction {
     PLP(CPUAddrMode),
     /// 2 - 7 cycles
     /// 
-    /// Move each of the bits in either Acc or Memory location one place to the left. Bit 0 is filled with
-    /// the current value of the carry flag whilst the old bit 7 becomes the new carry flag value.
+    /// Move each of the bits in either the accumulator or specified memory location one place to
+    /// the left. Bit 0 is filled with the current value of the carry flag whilst the old bit 7
+    /// becomes the new carry flag value.
     ROL(CPUAddrMode),
     /// 2 - 7 cycles
     /// 
-    /// Move each of the bits in either Acc or Memory location one place to the right. Bit 7 is filled with
-    /// the current value of the carry flag whilst the old bit 0 becomes the new carry flag value.
+    /// Move each of the bits in either the accumulator or specified memory location one place to the
+    /// right. Bit 7 is filled with the current value of the carry flag whilst the old bit 0 becomes the
+    /// new carry flag value.
     ROR(CPUAddrMode),
     /// 6 cycles
     /// 
@@ -283,6 +285,7 @@ pub enum CPUInstruction {
     TYA(CPUAddrMode),
 }
 
+/// 13 CPU addressing modes
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CPUAddrMode {
     /// (1 or 0?) cycles
@@ -539,7 +542,7 @@ impl CPU6502 {
             ac: 0,
             rx: 0,
             ry: 0,
-            ps: BitField::new(0),
+            ps: BitField::new(0x00),
             cycles: 0,
             cpu_mem: Mem::new_nops(),
             dbg: false,
@@ -607,7 +610,7 @@ impl CPU6502 {
         self.ac = 0;
         self.rx = 0;
         self.ry = 0;
-        self.ps = BitField::new(0);
+        self.ps = BitField::new(0x00);
         self.cycles = 0;
     }
 }

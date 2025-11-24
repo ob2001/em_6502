@@ -157,11 +157,11 @@ impl CPU6502 {
     ///
     /// Use Immediate addressing mode to obtain argument for CPU instruction
     pub fn imm(&mut self) -> CPUByte {
-        self.push_debug_msg("imm".to_string());
+        self.push_debug_msg("IMM".to_string());
         
         let ret = self.fetch_next_byte();
 
-        self.debug_ret_byte("imm", ret);
+        self.debug_ret_byte("IMM", ret);
         
         self.restore_debug_msg();
         ret
@@ -171,12 +171,12 @@ impl CPU6502 {
     /// 
     /// Use Zero Page addressing mode to obtain argument for CPU instruction
     pub fn zpg(&mut self) -> CPUByte {
-        self.push_debug_msg("zpg".to_string());
+        self.push_debug_msg("ZPG".to_string());
         
         let addr = self.fetch_next_byte();
         let ret = self.fetch_byte_at(addr as CPUWord);
 
-        self.debug_ret_byte("zpg", ret);
+        self.debug_ret_byte("ZPG", ret);
         
         self.restore_debug_msg();
         ret
@@ -186,7 +186,7 @@ impl CPU6502 {
     /// 
     /// Use Zero Page,X mode to obtain argument for CPU instruction
     pub fn zpx(&mut self) -> CPUByte {
-        self.push_debug_msg("zpx".to_string());
+        self.push_debug_msg("ZPX".to_string());
         
         self.debug();
         self.cycles += 1;
@@ -194,7 +194,7 @@ impl CPU6502 {
 
         let ret = self.fetch_byte_at(addr as CPUWord);
 
-        self.debug_ret_byte("zpx", ret);
+        self.debug_ret_byte("ZPX", ret);
         
         self.restore_debug_msg();
         ret
@@ -204,7 +204,7 @@ impl CPU6502 {
     /// 
     /// Use Zero Page,Y addressing mode to obtain argument for CPU instruction
     pub fn zpy(&mut self) -> CPUByte {
-        self.push_debug_msg("zpy".to_string());
+        self.push_debug_msg("ZPY".to_string());
         
         self.debug();
         self.cycles += 1;
@@ -212,7 +212,7 @@ impl CPU6502 {
 
         let ret = self.fetch_byte_at(addr as CPUWord);
 
-        self.debug_ret_byte("zpy", ret);
+        self.debug_ret_byte("ZPY", ret);
         
         self.restore_debug_msg();
         ret
@@ -222,12 +222,12 @@ impl CPU6502 {
     /// 
     /// Use Absolute addressing mode to obtain argument for CPU instruction
     pub fn abs(&mut self) -> CPUByte {
-        self.push_debug_msg("abs".to_string());
+        self.push_debug_msg("ABS".to_string());
         
         let addr = self.fetch_next_word();
         let ret = self.fetch_byte_at(addr);
 
-        self.debug_ret_byte("abs", ret);
+        self.debug_ret_byte("ABS", ret);
         
         self.restore_debug_msg();
         ret
@@ -237,7 +237,7 @@ impl CPU6502 {
     /// 
     /// Use Absolute,X addressing mode to obtain argument for CPU instruction
     pub fn abx(&mut self) -> CPUByte {
-        self.push_debug_msg("abx".to_string());
+        self.push_debug_msg("ABX".to_string());
         
         let tmp_addr = self.fetch_next_word();
         let addr = tmp_addr + self.rx as CPUWord;
@@ -249,7 +249,7 @@ impl CPU6502 {
         
         let ret = self.fetch_byte_at(addr);
 
-        self.debug_ret_byte("abx", ret);
+        self.debug_ret_byte("ABX", ret);
         
         self.restore_debug_msg();
         ret
@@ -259,7 +259,7 @@ impl CPU6502 {
     /// 
     /// Use Absolute,Y addressing mode to obtain argument for CPU instruction
     pub fn aby(&mut self) -> CPUByte {
-        self.push_debug_msg("aby".to_string());
+        self.push_debug_msg("ABY".to_string());
 
         let tmp_addr = self.fetch_next_word();
         let addr = tmp_addr + self.ry as CPUWord;
@@ -271,7 +271,7 @@ impl CPU6502 {
 
         let ret = self.fetch_byte_at(addr);
 
-        self.debug_ret_byte("aby", ret);
+        self.debug_ret_byte("ABY", ret);
 
         self.restore_debug_msg();
         ret
@@ -281,7 +281,7 @@ impl CPU6502 {
     /// 
     /// Use Pre-Indexed Indirect addressing mode to obtain argument for CPU instruction
     pub fn idx(&mut self) -> CPUByte {
-        self.push_debug_msg("idx".to_string());
+        self.push_debug_msg("IDX".to_string());
 
         self.debug();
         self.cycles += 1;
@@ -290,7 +290,7 @@ impl CPU6502 {
         let addr = self.fetch_word_at(tmp_addr as CPUWord);
         let ret = self.fetch_byte_at(addr);
 
-        self.debug_ret_byte("idx", ret);
+        self.debug_ret_byte("IDX", ret);
 
         self.restore_debug_msg();
         ret
@@ -300,7 +300,7 @@ impl CPU6502 {
     /// 
     /// Use Post-Indexed addressing mode to obtain argument for CPU instruction
     pub fn idy(&mut self) -> CPUByte {
-        self.push_debug_msg("idy".to_string());
+        self.push_debug_msg("IDY".to_string());
 
         let tmp_addr = self.fetch_next_byte();
         let tmp_addr = self.fetch_word_at(tmp_addr as CPUWord);
@@ -313,7 +313,7 @@ impl CPU6502 {
 
         let ret = self.fetch_byte_at(addr);
 
-        self.debug_ret_byte("idy", ret);
+        self.debug_ret_byte("IDY", ret);
 
         self.restore_debug_msg();
         ret
@@ -380,22 +380,18 @@ impl CPU6502 {
     /// at the memory location indicated by sp.
     /// 
     /// Increments sp twice.
-    pub fn pull_word(&mut self) -> CPUWord {        
-        self.push_debug_msg("pull_word".to_string());
-        
-        self.push_debug_msg("high".to_string());
+    pub fn pull_word(&mut self) -> CPUWord {                
+        self.push_debug_msg("pull_word => pull high".to_string());
         let high = self.pull_byte();
         self.restore_debug_msg();
 
-        self.push_debug_msg("low".to_string());
+        self.push_debug_msg("pull_word => pull low".to_string());
         let low = self.pull_byte();
         self.restore_debug_msg();
         
         let ret = ((high as CPUWord) << 8) + low as CPUWord;
 
         self.debug_ret_word("pull_word", ret);
-
-        self.restore_debug_msg();
         ret
     }
 

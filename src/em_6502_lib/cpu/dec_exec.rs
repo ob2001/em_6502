@@ -5,6 +5,8 @@ pub type InstructionResult = Result<CPUInstruction, String>;
 /// CPU instruction decoding and execution functions
 impl CPU6502 {
     /// 0 cycles
+    /// 
+    /// Decode a CPUByte into its corresponding instruction
     pub fn decode(&self, opcode: CPUByte) -> InstructionResult {
         use CPUInstruction::*;
         use CPUAddrMode::*;

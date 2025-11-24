@@ -38,17 +38,18 @@ fn main() {
                 print_help();
                 return
             }
-            _ => panic!("Incorrect usage - invalid program mode \"{}\"\nUse [--help] flag for usage instructions", mode),
+            _ => panic!("Incorrect usage - invalid program mode \"{}\"\nUse [-h] flag for usage instructions", mode),
         }
     } else {
-        panic!("Incorrect usage - please specify a program mode\nUse [--help] flag for usage instructions");
+        panic!("Incorrect usage - please specify a program mode\nUse [-h] flag for usage instructions");
     }
 }
 
 fn print_help() {
     let line_width = 46;
     println!("{:-^46}", "Usage");
-    println!(" > em_6502 [-d/--dbg | -i/--int | -h/--help]\n");
+    println!(" > em_6502 [-d/--dbg | -i/--int | -h/--help]");
+    println!();
     print_left_centre_pad_right("[-d/--dbg]:", " ", "Debug mode. Used in development.", line_width);
     print_left_centre_pad_right("[-i/--int]:", " ", "Interactive mode. For general use.", line_width);
     println!();

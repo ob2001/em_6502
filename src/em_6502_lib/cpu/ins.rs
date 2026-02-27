@@ -119,19 +119,26 @@ impl CPU6502 {
     /// - BVC
     /// - BVS
     pub fn branch(&mut self, cond: bool) {
-        // Debug message is set and restored from calling executiong function
+        // Debug message is set and restored from caller
         let operand = self.fetch_next_byte();
         if cond {
-            self.debug_imm("branch taken".to_string());
+            self.push_debug_msg("branch taken".to_string());
+            self.fetch_next_byte();
             let orig = self.pc;
-            self.pc = self.pc.wrapping_add_signed((operand as i8).into());
+            self.pc = self.pc.wrapping_add_signed((operand as i8 - 1).into());
             self.cycles += 1;
 
             if self.pc / 256 != orig / 256 {
                 self.debug_imm("page_crossed".to_string());
                 self.cycles += 1;
             }
+
+            self.restore_debug_msg();
+        } else {
+            self.debug_imm("branch not taken".to_string());
+            // self.pc = self.pc.wrapping_sub(1);
         }
+
     }
 
     /// 6 cycles
@@ -240,18 +247,39 @@ impl CPU6502 {
         self.push_debug_msg("DEC".to_string());
 
         let addr = match mode {
-            ZPG => self.zpg(),
-            ZPX => self.zpx(),
-            ABS => self.abs(),
-            ABX => {
-                let tmp = self.cycles;
-                let ret = self.abx();
-                if self.cycles - tmp == 3 {
-                    self.cycles += 1;
-                }
+            ZPG => {
+                self.push_debug_msg("zpg_addr".to_string());
+                let ret = self.fetch_next_byte() as CPUWord;
+                self.debug_ret_word("zpg_addr", ret);
+                self.restore_debug_msg();
                 ret
             }
-            _ => panic!("Invalid addressing mode for DEC"),
+            ZPX => {
+                self.push_debug_msg("zpx_addr".to_string());
+                self.debug();
+                let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                self.cycles += 1;
+                self.debug_ret_word("zpx_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            ABS => {
+                self.push_debug_msg("abs_addr".to_string());
+                let ret = self.fetch_next_word();
+                self.debug_ret_word("abs_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            ABX => {
+                self.push_debug_msg("abx_addr".to_string());
+                self.debug();
+                let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
+                self.cycles += 1;
+                self.debug_ret_word("abx_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            _ => panic!("Invalid addressing mode for INC"),
         };
 
         let mut byte = self.cpu_mem.byte_at(addr as CPUWord);
@@ -296,15 +324,36 @@ impl CPU6502 {
         self.push_debug_msg("INC".to_string());
 
         let addr = match mode {
-            ZPG => self.zpg(),
-            ZPX => self.zpx(),
-            ABS => self.abs(),
+            ZPG => {
+                self.push_debug_msg("zpg_addr".to_string());
+                let ret = self.fetch_next_byte() as CPUWord;
+                self.debug_ret_word("zpg_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            ZPX => {
+                self.push_debug_msg("zpx_addr".to_string());
+                self.debug();
+                let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                self.cycles += 1;
+                self.debug_ret_word("zpx_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            ABS => {
+                self.push_debug_msg("abs_addr".to_string());
+                let ret = self.fetch_next_word();
+                self.debug_ret_word("abs_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
             ABX => {
-                let tmp = self.cycles;
-                let ret = self.abx();
-                if self.cycles - tmp == 3 {
-                    self.cycles += 1;
-                }
+                self.push_debug_msg("abx_addr".to_string());
+                self.debug();
+                let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
+                self.cycles += 1;
+                self.debug_ret_word("abx_addr", ret);
+                self.restore_debug_msg();
                 ret
             }
             _ => panic!("Invalid addressing mode for INC"),
@@ -594,7 +643,7 @@ impl CPU6502 {
         };
 
         let orig_val = self.ac;
-        self.ac = self.ac.wrapping_sub(val + if !self.ps.test_bit(BitMasks::C) {1} else {0});
+        self.ac = self.ac.wrapping_sub(val.wrapping_add(if !self.ps.test_bit(BitMasks::C) {1} else {0}));
 
         self.update_v_flag(orig_val, val, self.ac);
         if self.ps.test_bit(BitMasks::V) {
@@ -636,7 +685,6 @@ impl CPU6502 {
             }
             ABX => {
                 self.push_debug_msg("abx_addr".to_string());
-                self.debug();
                 let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
                 self.cycles += 1;
                 self.debug_ret_word("abx_addr", ret);
@@ -645,7 +693,6 @@ impl CPU6502 {
             },
             ABY => {
                 self.push_debug_msg("aby_addr".to_string());
-                self.debug();
                 let ret = self.fetch_next_word().wrapping_add(self.ry as CPUWord);
                 self.cycles += 1;
                 self.debug_ret_word("aby_addr", ret);
@@ -654,7 +701,6 @@ impl CPU6502 {
             },
             IDX => {
                 self.push_debug_msg("idx_addr".to_string());
-                self.debug();
                 let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
                 self.cycles += 1;
                 let ret = self.fetch_word_at(addr);
@@ -665,7 +711,6 @@ impl CPU6502 {
             IDY => {
                 self.push_debug_msg("idy_addr".to_string());
                 let addr = self.fetch_next_byte();
-                self.debug();
                 let ret = self.fetch_word_at(addr as CPUWord).wrapping_add(self.ry as CPUWord);
                 self.cycles += 1;
                 self.debug_ret_word("idy_addr", ret);
@@ -753,6 +798,52 @@ impl CPU6502 {
 
         self.debug_imm(format!("store ry ({:#04X}) at {addr:#06X}", self.ry));
         *self.cpu_mem.mut_byte_at(addr) = self.ac;
+        self.cycles += 1;
+
+        self.restore_debug_msg();
+    }
+
+    pub fn stz(&mut self, mode: CPUAddrMode) {
+        self.push_debug_msg("STZ".to_string());
+
+        let addr = match mode {
+            ZPG => {
+                self.push_debug_msg("zpg_addr".to_string());
+                let ret = self.fetch_next_byte() as CPUWord;
+                self.debug_ret_word("zpg_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            ZPX => {
+                self.push_debug_msg("zpx_addr".to_string());
+                self.debug();
+                let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                self.cycles += 1;
+                self.debug_ret_word("zpx_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            ABS => {
+                self.push_debug_msg("abs_addr".to_string());
+                let ret = self.fetch_next_word();
+                self.debug_ret_word("abs_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            ABX => {
+                self.push_debug_msg("abx_addr".to_string());
+                self.debug();
+                let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
+                self.cycles += 1;
+                self.debug_ret_word("abx_addr", ret);
+                self.restore_debug_msg();
+                ret
+            }
+            _ => panic!("Invalid address mode for STZ"),
+        };
+
+        self.debug_imm(format!("set byte at {addr:#06X} to 0"));
+        *self.cpu_mem.mut_byte_at(addr) = 0;
         self.cycles += 1;
 
         self.restore_debug_msg();

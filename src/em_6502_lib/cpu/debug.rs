@@ -86,9 +86,9 @@ impl std::fmt::Display for CPU6502 {
             self.cpu_mem.byte_at(self.pc),
             if let Ok(ins) = self.decode(self.cpu_mem.byte_at(self.pc)) {format!("{ins:?}")} else {"None".to_string()},
             ((self.cpu_mem.byte_at(self.pc.wrapping_add(1)) as CPUWord) << 8) + self.cpu_mem.byte_at(self.pc) as CPUWord,
-            self.cpu_mem.byte_at(0x0100 + (self.sp.wrapping_sub(1)) as CPUWord),
-            if let Ok(ins) = self.decode(self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord)) {format!("{ins:?}")} else {"None".to_string()},
-            ((self.cpu_mem.byte_at(0x0100 + self.sp.wrapping_sub(2) as CPUWord) as CPUWord) << 8) + self.cpu_mem.byte_at(0x0100 + self.sp.wrapping_sub(1) as CPUWord) as CPUWord,
+            self.cpu_mem.byte_at(0x0100 + (self.sp.wrapping_add(1)) as CPUWord),
+            if let Ok(ins) = self.decode(self.cpu_mem.byte_at(0x0100 + (self.sp.wrapping_add(1)) as CPUWord)) {format!("{ins:?}")} else {"None".to_string()},
+            ((self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord) as CPUWord) << 8) + self.cpu_mem.byte_at(0x0100 + self.sp.wrapping_add(1) as CPUWord) as CPUWord,
         )
     }
 }

@@ -1,4 +1,4 @@
-use crate::{prelude::*, mem::Mem, bitfield::BitField};
+use crate::{prelude::*, mem::Mem, bits::BitField};
 
 pub mod debug;
 pub mod dec_exec;
@@ -254,6 +254,7 @@ pub enum CPUInstruction {
     /// 
     /// Stores the contents of the Y register into memory.
     STY(CPUAddrMode),
+    STZ(CPUAddrMode),
     /// 2 cycles
     /// 
     /// Copies the current contents of the accumulator into the X register and sets the

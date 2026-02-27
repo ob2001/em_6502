@@ -1,4 +1,4 @@
-use crate::{prelude::*, cpu::CPU6502, bitfield::BitField};
+use crate::{prelude::*, cpu::CPU6502, bits::BitField};
 
 pub type InstructionResult = Result<CPUInstruction, String>;
 
@@ -174,9 +174,15 @@ impl CPU6502 {
                     return Err(format!("{opcode:#04X}"))
                 }
             }
-            _ => {
+            ill => {
                 if self.illegal_opcode_mode {
-                    NOP(IMP)
+                    match ill {
+                        0x64 => STZ(ZPG),
+                        0x74 => STZ(ZPX),
+                        0x9C => STZ(ABS),
+                        0x9E => STZ(ABX),
+                        _ => NOP(IMP)
+                    }
                 } else {
                     return Err(format!("{opcode:#04X}"))
                 }
@@ -322,14 +328,14 @@ impl CPU6502 {
                 self.debug_imm("INX => inc rx, update ps".to_string());
                 self.rx = self.rx.wrapping_add(1);
                 self.ps.set_bit(BitMasks::Z, self.rx == 0);
-                self.ps.set_bit(BitMasks::Z, self.rx & 0b1000_0000 != 0);
+                self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
                 self.cycles += 1;
             }
             INY(IMP) => {
                 self.debug_imm("INY => inc ry, update ps".to_string());
                 self.ry = self.ry.wrapping_add(1);
                 self.ps.set_bit(BitMasks::Z, self.ry == 0);
-                self.ps.set_bit(BitMasks::Z, self.ry & 0b1000_0000 != 0);
+                self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
                 self.cycles += 1;
             }
             JMP(mode) => self.jmp(mode),
@@ -478,6 +484,7 @@ impl CPU6502 {
             STA(mode) => self.sta(mode),
             STX(mode) => self.stx(mode),
             STY(mode) => self.sty(mode),
+            STZ(mode) => self.stz(mode),
             TAX(IMP) => {
                 self.debug_imm("TAX => set rx to ac".to_string());
                 self.rx = self.ac;

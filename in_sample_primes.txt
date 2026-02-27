@@ -1,0 +1,209 @@
+byte_radix_mode: hex
+fill_byte: FF
+
+;
+; Prime Number Finder
+; Hand-assembled from code at https://atariwiki.org/wiki/Wiki.jsp?page=Advanced%206502%20Assembly%20Code%20Examples
+;
+
+                    ; .ORG $E000
+                    ; Initializing the Stack Pointer
+E000: 78            ; SEI
+E001: A2, FF        ; LDX #$FF
+E003: 9A            ; TXS
+                    ;
+E004: A2, 00        ; LDX #$00
+E006: A0, 00        ; LDY #$00
+                    ; -- Delay (E008)
+E008: EA            ; DEX       ;; OVERRIDE - NOP
+E009: EA, EA        ; BNE Delay ;; OVERRIDE - NOP
+E00B: EA            ; DEY       ;; OVERRIDE - NOP
+E00C: EA, EA        ; BNE Delay ;; OVERRIDE - NOP
+                    ;
+E00E: A9, 01        ; LDA #$01
+E010: 8D, 03, A0    ; STA $a003
+E013: A9, 01        ; LDA #$01
+E015: 8D, 01, A0    ; STA $a001
+                    ;
+E018: A2, 01        ; LDX #$01
+                    ; -- Init_Loop (E01A)
+E01A: 8A            ; TXA
+E01B: 95, 00        ; STA Array,X
+E01D: E8            ; INX
+E01E: D0, FA        ; BNE Init_Loop
+                    ;
+E020: A9, 02        ; LDA #$02
+E022: 85, 00        ; STA Test_num
+E024: A9, 04        ; LDA #$04
+                    ;
+                    ; Start Setting the Multiples of the Test_num to zero
+                    ; -- Start_num (E026)
+                    ; -- Got_Mult (E026)
+E026: AA            ; TAX
+E027: 74, 00        ; STZ Array,X ; ILLEGAL OPCODE (for original 6502)
+E029: 18            ; CLC
+E02A: 6D, 00, 00    ; ADC Test_num
+E02D: B0, 03        ; BCS Next_num
+E02F: 4C, 26, E0    ; JMP Got_Mult
+                    ;
+                    ; -- Next_num (E032)
+E032: EE, 00, 00    ; INC Test_num
+E035: AE, 00, 00    ; LDX Test_Num
+E038: E0, 10        ; CPX #$10
+E03A: F0, 10        ; BEQ More_Primes
+E03C: B5, 00        ; LDA Array,X
+E03E: F0, F2        ; BEQ Next_num
+E040: 8A            ; TXA
+                    ; Got a valid new Test_num, now find its square because all non-primes multiples less than its square are eliminated already
+E041: CA            ; DEX
+E042: 18            ; CLC
+                    ; -- Square (E043)
+E043: 6D, 00, 00    ; ADC Test_num
+E046: CA            ; DEX
+E047: D0, FA        ; BNE Square
+                    ; OK Got the square of Test_num in the accumulator let's start checking
+E049: 4C, 26, E0    ; JMP Start_num
+                    ;
+                    ; -- More_Primes (E04C)
+E04C: A2, 00        ; LDX #$00
+E04E: A0, 01        ; LDY #$01
+                    ; -- Repack (E050)
+E050: E8            ; INX
+E051: F0, 0B        ; BEQ Done_packing
+E053: B5, 00        ; LDA Array,X
+E055: F0, F9        ; BEQ Repack
+E057: 99, 00, 00    ; STA Array,Y
+E05A: C8            ; INY
+E05B: 4C, 50, E0    ; JMP Repack
+                    ;
+                    ; -- Done_packing (E05E)
+E05E: A9, 00        ; LDA #$00
+E060: 99, 00, 00    ; STA Array,Y
+E063: A9, 00        ; LDA #$00
+E065: 8D, F0, 00    ; STA Prime_ptr
+E068: A9, 02        ; LDA #$02
+E07A: 8D, F1, 00    ; STA Prime_ptr+1
+                    ;
+E07D: A9, 01        ; LDA #$01
+E07F: 8D, F2, 00    ; STA Poss_Prime
+E082: 8D, F3, 00    ; STA Poss_Prime+1
+                    ;
+                    ; -- Next_PP (E085)
+E085: A0, 02        ; LDY #$02
+                    ; -- Next_AP (E087)
+E087: B9, 00, 00    ; LDA Array,Y
+E08A: F0, 09        ; BEQ Prime
+E08C: 20, E0, B6    ; JSR Mod
+E08F: F0, 1C        ; BEQ Next_Poss_Prime
+E091: C8            ; INY
+E092: 4C, 87, E0    ; JMP Next_AP
+                    ;
+                    ; -- Prime (E095)
+E095: A2, 00        ; LDX #$00
+E097: A5, F2        ; LDA Poss_Prime
+E099: 81, F0        ; STA (Prime_ptr,X)
+E09B: E8            ; INX
+E09C: A5, F3        ; LDA Poss_Prime+1
+E09E: 81, F0        ; STA (Prime_ptr,X)
+E0A0: 18            ; CLC
+E0A1: A5, F0        ; LDA Prime_ptr
+E0A3: 69, 02        ; ADC #$02
+E0A5: 85, F0        ; STA Prime_ptr
+E0A7: A5, F1        ; LDA Prime_ptr+1
+E0A9: 69, 00        ; ADC #$00
+E0AB: 85, F1        ; STA Prime_ptr+1
+                    ;
+                    ; -- Next_Poss_Prime (E0AD)
+E0AD: 18            ; CLC
+E0AE: A5, F2        ; LDA Poss_Prime
+E0B0: 69, 01        ; ADC #$01
+E0B2: 85, F2        ; STA Poss_Prime
+E0B4: A5, F3        ; LDA Poss_Prime+1
+E0B6: 69, 00        ; ADC #$00
+E0B8: 85, F3        ; STA Poss_Prime+1
+E0BA: 90, C9        ; BCC Next_PP
+                    ;
+E0BC: A9, 00        ; LDA #$00
+E0BE: 8D, 01, A0    ; STA $a001
+                    ; -- DONE (E0C1)
+E0C1: FF            ; HLT
+                    ;
+                    ; -- Mod (E0C2)
+E0C2: A6, F2        ; LDX Poss_Prime
+E0C4: 86, F4        ; STX Temp
+E0C6: A6, F3        ; LDX Poss_Prime+1
+E0C8: 86, F5        ; STX Temp+1
+E0CA: A2, 00        ; LDX #$00
+E0CC: 86, F6        ; STX Shift
+                    ;
+                    ; -- Compare (E0CE)
+E0CE: 38            ; SEC
+E0CF: C5, F5        ; CMP Temp+1
+E0D1: B0, 0F        ; BCS A_Bigger
+                    ;
+E0D3: 18            ; CLC
+E0D4: 2A            ; ROL ACC
+E0D5: 90, 06        ; BCC Not_off_end
+                    ;
+E0D7: 6A            ; ROR ACC
+E0D8: 85, F7        ; STA TempArg
+E0DA: 4C, F0, E0    ; JMP Start_Mod
+                    ;
+                    ; -- Not_off_end (E0DD)
+E0DD: E6, F6        ; INC Shift
+E0DF: 4C, CE, E0    ; JMP Compare
+                    ;
+                    ; -- A_Bigger (E0E2)
+E0E2: A6, F6        ; LDX Shift
+E0E4: E0, 00        ; CPX #$00
+E0E6: 85, F7        ; STA TempArg
+E0E8: F0, 06        ; BEQ Start_Mod
+E0EA: 18            ; CLC
+E0EB: 6A            ; ROR ACC
+E0EC: C6, F6        ; DEC Shift
+E0EE: 85, F7        ; STA TempArg
+                    ;
+                    ; -- Start_Mod (E0F0)
+E0F0: A5, F5        ; LDA Temp+1
+E0F2: 38            ; SEC
+E0F3: C5, F7        ; CMP TempArg
+E0F5: 90, 04        ; BCC Dont_Subt
+                    ;
+E0F7: E5, F7        ; SBC TempArg
+E0F9: 85, F5        ; STA Temp+1
+                    ;
+                    ; -- Dont_Subt (E0FB)
+E0FB: A5, F6        ; LDA Shift
+E0FD: 30, 0A        ; BMI Sh_Temp
+E0FF: F0, 08        ; BEQ Sh_Temp
+                    ;
+E101: 18            ; CLC
+E102: 66, F7        ; ROR TempArg
+E104: C6, F6        ; DEC Shift
+E106: 4C, F0, E0    ; JMP Start_Mod
+                    ;
+                    ; -- Sh_Temp (E109)
+E109: C9, F8        ; CMP #$f8
+E10B: D0, 03        ; BNE Continue
+E10D: A5, F5        ; LDA Temp+1
+E10F: 60            ; RTS
+                    ;
+                    ; -- Continue (E110)
+E110: C6, F6        ; DEC Shift
+E112: 18            ; CLC
+E113: 26, F4        ; ROL Temp
+E115: 26, F5        ; ROL Temp+1
+E117: 4C, F0, E0    ; JMP Start_Mod
+                    ;
+                    ; .ORG $FFFC
+FFFC: 00, E0        ; .WORD $E000
+                    ; .END
+
+; Program variable pointers (zero page)
+; Test_num = 00
+; Array = 00
+; Prime_ptr = F0
+; Poss_Prime = F2
+; Temp = F4
+; Shift = F6
+; TempArg = F7

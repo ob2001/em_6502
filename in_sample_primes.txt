@@ -5,6 +5,8 @@ fill_byte: FF
 ; Prime Number Finder
 ; Hand-assembled from code at https://atariwiki.org/wiki/Wiki.jsp?page=Advanced%206502%20Assembly%20Code%20Examples
 ;
+; Program terminates with some primes listed, but not all that should be, and with many non-primes also listed at the end.
+;
 
                     ; .ORG $E000
                     ; Initializing the Stack Pointer

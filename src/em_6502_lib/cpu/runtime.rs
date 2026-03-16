@@ -2,7 +2,7 @@ use crate::{prelude::*, cpu::CPU6502};
 
 /// CPU internal runtime functions
 impl CPU6502 {
-    /// Reset the CPU to pwoer-on state, then set the program counter to the address
+    /// Reset the CPU to power-on state, then set the program counter to the address
     /// stored at the Power On Reset memory location (0xFFFC/0xFFFD).
     pub fn power_on(&mut self) {
         self.reset();

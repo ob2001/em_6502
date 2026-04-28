@@ -5,7 +5,8 @@ use CPUAddrMode::*;
 impl CPU6502 {
     /// 1 - 5 cycles
     /// 
-    /// Implements functionality of the ADC Instruction.
+    /// Adds value obtained from addressing mode to value in
+    /// ACC. Overflow from addition sets the V and C flags.
     pub fn adc(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("ADC".to_string());
 
@@ -26,15 +27,16 @@ impl CPU6502 {
 
         self.update_v_flag(init_val, add_val, self.ac);
         self.ps.set_bit(BitMasks::C, self.ps.test_bit(BitMasks::V));
-        self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
-        self.ps.set_bit(BitMasks::Z, self.ac == 0);
+        self.update_z_flag(self.ac);
+        self.update_n_flag(self.ac);
 
         self.restore_debug_msg();
     }
 
     /// 1 - 5 cycles
     /// 
-    /// Implements functionality of the AND Instruction
+    /// Ands value obtained from addressing mode with value in
+    /// ACC.
     pub fn and(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("AND".to_string());
 
@@ -50,7 +52,7 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for AND"),
         };
 
-        self.update_z(self.ac);
+        self.update_z_flag(self.ac);
         self.update_n_flag(self.ac);
 
         self.restore_debug_msg();
@@ -58,7 +60,9 @@ impl CPU6502 {
 
     /// 1 - 6 cycles
     /// 
-    /// Implements functionality of the ASL Instruction
+    /// Shifts value in location obtained from addressing mode
+    /// one bit left. Bit 0 is set to 0 and the original
+    /// bit 7 is placed in the C flag.
     pub fn asl(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("ASL".to_string());
 
@@ -100,7 +104,7 @@ impl CPU6502 {
         let new_byte = byte.clone();
         
         self.ps.set_bit(BitMasks::C, orig_byte & 0b1000_0000 != 0);
-        self.update_z(self.ac);
+        self.update_z_flag(self.ac);
         self.update_n_flag(new_byte);
         
         self.restore_debug_msg();
@@ -141,16 +145,40 @@ impl CPU6502 {
 
     }
 
+    /// 2 - 3 cycles
+    /// 
+    /// Sets V and N flags to value of bnits 6 and 7,
+    /// respectively, of value in location obtained from
+    /// addressing mode. The result of the value obtained when
+    /// anded with ACC is used to set or clear the Z flag.
+    pub fn bit(&mut self, mode: CPUAddrMode) {
+        self.push_debug_msg("BIT".to_string());
+
+        let val = match mode {
+            ZPG => self.zpg(),
+            ABS => self.abs(),
+            _ => panic!("Invalid address mode for BIT")
+        };
+
+        self.update_z_flag(self.ac & val);
+        self.ps.set_bit(BitMasks::V, val & 0b0100_0000 != 0);
+        self.update_n_flag(val);
+
+        self.restore_debug_msg();
+    }
+
     /// 6 cycles
     /// 
-    /// Implements functionality of the BRK Instruction.
+    /// Forces a CPU interrupt. Pushes pc and ps to the stack
+    /// before setting B flag and setting pc to the location
+    /// pointed to by the IRQ interrupt vector ($FFFE-$FFFF).
     pub fn brk(&mut self) {
         self.push_debug_msg("BRK".to_string());
         self.fetch_next_byte();
 
         self.push_debug_msg("push_pc".to_string());
-        self.ps.set_bit(BitMasks::B, true);
         self.push_word(self.pc);
+        self.ps.set_bit(BitMasks::B, true);
         self.restore_debug_msg();
 
         self.push_debug_msg("push_ps".to_string());
@@ -164,26 +192,11 @@ impl CPU6502 {
         self.restore_debug_msg();
     }
 
-    /// 2 - 3 cycles
-    /// 
-    /// Implements functionality of the BIT Instruction
-    pub fn bit(&mut self, mode: CPUAddrMode) {
-        self.push_debug_msg("BIT".to_string());
-
-        let val = match mode {
-            ZPG => self.zpg(),
-            ABS => self.abs(),
-            _ => panic!("Invalid address mode for BIT")
-        };
-
-        self.update_z(self.ac & val);
-        self.update_n_flag(val);
-        self.ps.set_bit(BitMasks::V, val & 0b0100_0000 != 0);
-
-        self.restore_debug_msg();
-    }
-
     /// 1 - 5 cycles
+    /// 
+    /// Compares value at location obtained from addressing mode
+    /// with ACC and updates the C, Z, and N flags based on the
+    /// result of the comparison.
     pub fn cmp(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("CMP".to_string());
 
@@ -200,8 +213,8 @@ impl CPU6502 {
         };
 
         self.ps.set_bit(BitMasks::C, self.ac >= val);
-        self.ps.set_bit(BitMasks::Z, self.ac == val);
-        self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
+        self.update_z_flag(val.wrapping_sub(self.ac));
+        self.update_n_flag(val.wrapping_sub(self.ac));
 
         self.restore_debug_msg();
     }
@@ -218,8 +231,8 @@ impl CPU6502 {
         };
 
         self.ps.set_bit(BitMasks::C, self.rx >= val);
-        self.ps.set_bit(BitMasks::Z, self.rx == val);
-        self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
+        self.update_z_flag(val.wrapping_sub(self.rx));
+        self.update_n_flag(val.wrapping_sub(self.rx));
 
         self.restore_debug_msg();
     }
@@ -236,8 +249,8 @@ impl CPU6502 {
         };
 
         self.ps.set_bit(BitMasks::C, self.ry >= val);
-        self.ps.set_bit(BitMasks::Z, self.ry == val);
-        self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
+        self.update_z_flag(val.wrapping_sub(self.ry));
+        self.update_n_flag(val.wrapping_sub(self.ry));
 
         self.restore_debug_msg();
     }
@@ -291,8 +304,8 @@ impl CPU6502 {
         *self.cpu_mem.mut_byte_at(addr as CPUWord) = byte;
         self.cycles += 1;
         
-        self.ps.set_bit(BitMasks::Z, byte == 0);
-        self.ps.set_bit(BitMasks::N, byte & 0b1000_0000 != 0);
+        self.update_z_flag(byte);
+        self.update_n_flag(byte);
         
         self.restore_debug_msg();
     }
@@ -314,8 +327,8 @@ impl CPU6502 {
         };
 
         self.ac ^= val;
-        self.ps.set_bit(BitMasks::Z, self.ac == 0);
-        self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
+        self.update_z_flag(self.ac);
+        self.update_n_flag(self.ac);
 
         self.restore_debug_msg();
     }
@@ -368,8 +381,8 @@ impl CPU6502 {
         *self.cpu_mem.mut_byte_at(addr as CPUWord) = byte;
         self.cycles += 1;
 
-        self.ps.set_bit(BitMasks::Z, byte == 0);
-        self.ps.set_bit(BitMasks::N, byte & 0b1000_0000 != 0);
+        self.update_z_flag(byte);
+        self.update_n_flag(byte);
 
         self.restore_debug_msg();
     }
@@ -417,7 +430,7 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for LDA"),
         };
 
-        self.update_z(self.ac);
+        self.update_z_flag(self.ac);
         self.update_n_flag(self.ac);
         
         self.restore_debug_msg();
@@ -436,8 +449,8 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for LDX")
         };
 
-        self.ps.set_bit(BitMasks::Z, self.rx == 0);
-        self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
+        self.update_z_flag(self.rx);
+        self.update_n_flag(self.rx);
 
         self.restore_debug_msg();
     }
@@ -455,8 +468,8 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for LDX")
         };
 
-        self.ps.set_bit(BitMasks::Z, self.ry == 0);
-        self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
+        self.update_z_flag(self.ry);
+        self.update_n_flag(self.ry);
 
         self.restore_debug_msg();
     }
@@ -503,8 +516,8 @@ impl CPU6502 {
         let new_byte = byte.clone();
         
         self.ps.set_bit(BitMasks::C, orig_byte & 0b0000_0001 != 0);
-        self.ps.set_bit(BitMasks::Z, new_byte == 0);
-        self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
+        self.update_z_flag(new_byte);
+        self.update_n_flag(new_byte);
         
         self.restore_debug_msg();
     }
@@ -525,8 +538,8 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for ORA"),
         };
 
-        self.ps.set_bit(BitMasks::Z, self.ac == 0);
-        self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
+        self.update_z_flag(self.ac);
+        self.update_n_flag(self.ac);
         
         self.restore_debug_msg();
     }
@@ -573,8 +586,8 @@ impl CPU6502 {
         let new_byte = byte.clone();
 
         self.ps.set_bit(BitMasks::C, orig_byte & 0b1000_0000 != 0);
-        self.ps.set_bit(BitMasks::Z, self.ac == 0);
-        self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
+        self.update_z_flag(new_byte);
+        self.update_n_flag(new_byte);
 
         self.restore_debug_msg();
     }
@@ -621,8 +634,8 @@ impl CPU6502 {
         let new_byte = byte.clone();
 
         self.ps.set_bit(BitMasks::C, orig_byte & 0b0000_0001 != 0);
-        self.ps.set_bit(BitMasks::Z, self.ac == 0);
-        self.ps.set_bit(BitMasks::N, new_byte & 0b1000_0000 != 0);
+        self.update_z_flag(new_byte);
+        self.update_n_flag(new_byte);
 
         self.restore_debug_msg();
     }
@@ -649,8 +662,8 @@ impl CPU6502 {
         if self.ps.test_bit(BitMasks::V) {
             self.ps.set_bit(BitMasks::C, false);
         }
-        self.ps.set_bit(BitMasks::Z, self.ac == 0);
-        self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
+        self.update_z_flag(self.ac);
+        self.update_n_flag(self.ac);
 
         self.restore_debug_msg();
     }
@@ -803,6 +816,8 @@ impl CPU6502 {
         self.restore_debug_msg();
     }
 
+    /// Implementation of ILLEGAL opcode for original 6502.
+    /// Added for use in primes sample code.
     pub fn stz(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("STZ".to_string());
 

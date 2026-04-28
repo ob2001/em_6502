@@ -398,7 +398,7 @@ impl CPU6502 {
     /// 0 cycles
     /// 
     /// Updates the zero flag based on the CPUByte value passed.
-    pub fn update_z(&mut self, val: CPUByte) {
+    pub fn update_z_flag(&mut self, val: CPUByte) {
         self.ps.set_bit(BitMasks::Z, val == 0);
     }
 

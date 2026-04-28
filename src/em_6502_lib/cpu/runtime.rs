@@ -4,8 +4,10 @@ use crate::{prelude::*, cpu::CPU6502};
 impl CPU6502 {
     /// Reset the CPU to power-on state, then set the program counter to the address
     /// stored at the Power On Reset memory location (0xFFFC/0xFFFD).
-    pub fn power_on(&mut self) {
+    pub fn power_on(&mut self, dbg: bool) {
         self.reset();
+        self.set_dbg_mode(dbg);
+
         self.clear_debug_msg();
 
         self.push_debug_msg("power_on".to_string());
@@ -18,9 +20,7 @@ impl CPU6502 {
 
     /// Perform CPU reset then begin emulation loop.
     pub fn power_on_and_run(&mut self, debugging: bool) {
-        self.dbg = debugging;
-
-        self.power_on();
+        self.power_on(debugging);
 
         self.push_debug_msg("run".to_string());
         loop {

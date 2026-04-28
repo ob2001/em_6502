@@ -22,7 +22,7 @@ impl CPU6502 {
             _ => panic!("Invalid address mode for ADC"),
         }.wrapping_add(if self.ps.test_bit(BitMasks::C) {1} else {0});
 
-        self.ac = self.ac.wrapping_add(add_val);
+        self.ac = self.ac.wrapping_add(add_val.wrapping_add(if self.ps.test_bit(BitMasks::C) {1} else {0}));
 
         self.update_v_flag(init_val, add_val, self.ac);
         self.ps.set_bit(BitMasks::C, self.ps.test_bit(BitMasks::V));

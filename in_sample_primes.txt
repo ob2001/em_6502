@@ -5,7 +5,7 @@ fill_byte: FF
 ; Prime Number Finder
 ; Hand-assembled from code at https://atariwiki.org/wiki/Wiki.jsp?page=Advanced%206502%20Assembly%20Code%20Examples
 ;
-; Program terminates with some primes listed, but not all that should be, and with many non-primes also listed at the end.
+; Program terminates with primes less than 128 listed
 ;
 
                     ; .ORG $E000
@@ -84,118 +84,118 @@ E060: 99, 00, 00    ; STA Array,Y
 E063: A9, 00        ; LDA #$00
 E065: 8D, F0, 00    ; STA Prime_ptr
 E068: A9, 02        ; LDA #$02
-E07A: 8D, F1, 00    ; STA Prime_ptr+1
+E06A: 8D, F1, 00    ; STA Prime_ptr+1
                     ;
-E07D: A9, 01        ; LDA #$01
-E07F: 8D, F2, 00    ; STA Poss_Prime
-E082: 8D, F3, 00    ; STA Poss_Prime+1
+E06D: A9, 01        ; LDA #$01
+E06F: 8D, F2, 00    ; STA Poss_Prime
+E072: 8D, F3, 00    ; STA Poss_Prime+1
                     ;
-                    ; -- Next_PP (E085)
-E085: A0, 02        ; LDY #$02
-                    ; -- Next_AP (E087)
-E087: B9, 00, 00    ; LDA Array,Y
-E08A: F0, 09        ; BEQ Prime
-E08C: 20, E0, B6    ; JSR Mod
-E08F: F0, 1C        ; BEQ Next_Poss_Prime
-E091: C8            ; INY
-E092: 4C, 87, E0    ; JMP Next_AP
+                    ; -- Next_PP (E075)
+E075: A0, 02        ; LDY #$02
+                    ; -- Next_AP (E077)
+E077: B9, 00, 00    ; LDA Array,Y
+E07A: F0, 09        ; BEQ Prime
+E07C: 20, B2, E0    ; JSR Mod
+E07F: F0, 1C        ; BEQ Next_Poss_Prime
+E081: C8            ; INY
+E082: 4C, 77, E0    ; JMP Next_AP
                     ;
-                    ; -- Prime (E095)
-E095: A2, 00        ; LDX #$00
-E097: A5, F2        ; LDA Poss_Prime
-E099: 81, F0        ; STA (Prime_ptr,X)
-E09B: E8            ; INX
-E09C: A5, F3        ; LDA Poss_Prime+1
-E09E: 81, F0        ; STA (Prime_ptr,X)
-E0A0: 18            ; CLC
-E0A1: A5, F0        ; LDA Prime_ptr
-E0A3: 69, 02        ; ADC #$02
-E0A5: 85, F0        ; STA Prime_ptr
-E0A7: A5, F1        ; LDA Prime_ptr+1
-E0A9: 69, 00        ; ADC #$00
-E0AB: 85, F1        ; STA Prime_ptr+1
+                    ; -- Prime (E085)
+E085: A2, 00        ; LDX #$00
+E087: A5, F2        ; LDA Poss_Prime
+E089: 81, F0        ; STA (Prime_ptr,X)
+E08B: E8            ; INX
+E08C: A5, F3        ; LDA Poss_Prime+1
+E08E: 81, F0        ; STA (Prime_ptr,X)
+E090: 18            ; CLC
+E091: A5, F0        ; LDA Prime_ptr
+E093: 69, 02        ; ADC #$02
+E095: 85, F0        ; STA Prime_ptr
+E097: A5, F1        ; LDA Prime_ptr+1
+E099: 69, 00        ; ADC #$00
+E09B: 85, F1        ; STA Prime_ptr+1
                     ;
-                    ; -- Next_Poss_Prime (E0AD)
-E0AD: 18            ; CLC
-E0AE: A5, F2        ; LDA Poss_Prime
-E0B0: 69, 01        ; ADC #$01
-E0B2: 85, F2        ; STA Poss_Prime
-E0B4: A5, F3        ; LDA Poss_Prime+1
-E0B6: 69, 00        ; ADC #$00
-E0B8: 85, F3        ; STA Poss_Prime+1
-E0BA: 90, C9        ; BCC Next_PP
+                    ; -- Next_Poss_Prime (E09D)
+E09D: 18            ; CLC
+E09E: A5, F2        ; LDA Poss_Prime
+E0A0: 69, 01        ; ADC #$01
+E0A2: 85, F2        ; STA Poss_Prime
+E0A4: A5, F3        ; LDA Poss_Prime+1
+E0A6: 69, 00        ; ADC #$00
+E0A8: 85, F3        ; STA Poss_Prime+1
+E0AA: 90, C9        ; BCC Next_PP
                     ;
-E0BC: A9, 00        ; LDA #$00
-E0BE: 8D, 01, A0    ; STA $a001
-                    ; -- DONE (E0C1)
-E0C1: FF            ; HLT
+E0AC: A9, 00        ; LDA #$00
+E0AE: 8D, 01, A0    ; STA $a001
+                    ; -- DONE (E0B1)
+E0B1: FF            ; HLT
                     ;
-                    ; -- Mod (E0C2)
-E0C2: A6, F2        ; LDX Poss_Prime
-E0C4: 86, F4        ; STX Temp
-E0C6: A6, F3        ; LDX Poss_Prime+1
-E0C8: 86, F5        ; STX Temp+1
-E0CA: A2, 00        ; LDX #$00
-E0CC: 86, F6        ; STX Shift
+                    ; -- Mod (E0B2)
+E0B2: A6, F2        ; LDX Poss_Prime
+E0B4: 86, F4        ; STX Temp
+E0B6: A6, F3        ; LDX Poss_Prime+1
+E0B8: 86, F5        ; STX Temp+1
+E0BA: A2, 00        ; LDX #$00
+E0BC: 86, F6        ; STX Shift
                     ;
-                    ; -- Compare (E0CE)
-E0CE: 38            ; SEC
-E0CF: C5, F5        ; CMP Temp+1
-E0D1: B0, 0F        ; BCS A_Bigger
+                    ; -- Compare (E0BE)
+E0BE: 38            ; SEC
+E0BF: C5, F5        ; CMP Temp+1
+E0C1: B0, 0F        ; BCS A_Bigger
                     ;
-E0D3: 18            ; CLC
-E0D4: 2A            ; ROL ACC
-E0D5: 90, 06        ; BCC Not_off_end
+E0C3: 18            ; CLC
+E0C4: 2A            ; ROL ACC
+E0C5: 90, 06        ; BCC Not_off_end
                     ;
-E0D7: 6A            ; ROR ACC
-E0D8: 85, F7        ; STA TempArg
-E0DA: 4C, F0, E0    ; JMP Start_Mod
+E0C7: 6A            ; ROR ACC
+E0C8: 85, F7        ; STA TempArg
+E0CA: 4C, E0, E0    ; JMP Start_Mod
                     ;
-                    ; -- Not_off_end (E0DD)
-E0DD: E6, F6        ; INC Shift
-E0DF: 4C, CE, E0    ; JMP Compare
+                    ; -- Not_off_end (E0CD)
+E0CD: E6, F6        ; INC Shift
+E0CF: 4C, BE, E0    ; JMP Compare
                     ;
-                    ; -- A_Bigger (E0E2)
-E0E2: A6, F6        ; LDX Shift
-E0E4: E0, 00        ; CPX #$00
-E0E6: 85, F7        ; STA TempArg
-E0E8: F0, 06        ; BEQ Start_Mod
-E0EA: 18            ; CLC
-E0EB: 6A            ; ROR ACC
-E0EC: C6, F6        ; DEC Shift
-E0EE: 85, F7        ; STA TempArg
+                    ; -- A_Bigger (E0D2)
+E0D2: A6, F6        ; LDX Shift
+E0D4: E0, 00        ; CPX #$00
+E0D6: 85, F7        ; STA TempArg
+E0D8: F0, 06        ; BEQ Start_Mod
+E0DA: 18            ; CLC
+E0DB: 6A            ; ROR ACC
+E0DC: C6, F6        ; DEC Shift
+E0DE: 85, F7        ; STA TempArg
                     ;
-                    ; -- Start_Mod (E0F0)
-E0F0: A5, F5        ; LDA Temp+1
-E0F2: 38            ; SEC
-E0F3: C5, F7        ; CMP TempArg
-E0F5: 90, 04        ; BCC Dont_Subt
+                    ; -- Start_Mod (E0E0)
+E0E0: A5, F5        ; LDA Temp+1
+E0E2: 38            ; SEC
+E0E3: C5, F7        ; CMP TempArg
+E0E5: 90, 04        ; BCC Dont_Subt
                     ;
-E0F7: E5, F7        ; SBC TempArg
-E0F9: 85, F5        ; STA Temp+1
+E0E7: E5, F7        ; SBC TempArg
+E0E9: 85, F5        ; STA Temp+1
                     ;
                     ; -- Dont_Subt (E0FB)
-E0FB: A5, F6        ; LDA Shift
-E0FD: 30, 0A        ; BMI Sh_Temp
-E0FF: F0, 08        ; BEQ Sh_Temp
+E0EB: A5, F6        ; LDA Shift
+E0ED: 30, 0A        ; BMI Sh_Temp
+E0EF: F0, 08        ; BEQ Sh_Temp
                     ;
-E101: 18            ; CLC
-E102: 66, F7        ; ROR TempArg
-E104: C6, F6        ; DEC Shift
-E106: 4C, F0, E0    ; JMP Start_Mod
+E0F1: 18            ; CLC
+E0F2: 66, F7        ; ROR TempArg
+E0F4: C6, F6        ; DEC Shift
+E0F6: 4C, E0, E0    ; JMP Start_Mod
                     ;
-                    ; -- Sh_Temp (E109)
-E109: C9, F8        ; CMP #$f8
-E10B: D0, 03        ; BNE Continue
-E10D: A5, F5        ; LDA Temp+1
-E10F: 60            ; RTS
+                    ; -- Sh_Temp (E0F9)
+E0F9: C9, F8        ; CMP #$f8
+E0FB: D0, 03        ; BNE Continue
+E0FD: A5, F5        ; LDA Temp+1
+E0FF: 60            ; RTS
                     ;
-                    ; -- Continue (E110)
-E110: C6, F6        ; DEC Shift
-E112: 18            ; CLC
-E113: 26, F4        ; ROL Temp
-E115: 26, F5        ; ROL Temp+1
-E117: 4C, F0, E0    ; JMP Start_Mod
+                    ; -- Continue (E100)
+E100: C6, F6        ; DEC Shift
+E102: 18            ; CLC
+E103: 26, F4        ; ROL Temp
+E105: 26, F5        ; ROL Temp+1
+E107: 4C, E0, E0    ; JMP Start_Mod
                     ;
                     ; .ORG $FFFC
 FFFC: 00, E0        ; .WORD $E000

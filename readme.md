@@ -14,7 +14,7 @@ Can direct CPU behaviour when decoding the HLT opcode specifically, as well as t
 - [ ] Complete docstrings.
 - [x] Add debugging information for remaining instructions.
 - [ ] Test all cpu instructions.
-  - [ ] Ensure correct functionality.
+  - [x] Ensure correct functionality.
   - [ ] Check cpu cycles are correct and consistent during runtime.
   - [x] Debugging outputs.
 - [ ] Implement interactive terminal environment to build and run CPUs and memory

@@ -307,15 +307,15 @@ impl CPU6502 {
             DEX(IMP) => {
                 self.debug_imm("DEX => dec rx, update ps".to_string());
                 self.rx = self.rx.wrapping_sub(1);
-                self.ps.set_bit(BitMasks::Z, self.rx == 0);
-                self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
+                self.update_z_flag(self.rx);
+                self.update_n_flag(self.rx);
                 self.cycles += 1;
             }
             DEY(IMP) => {
                 self.debug_imm("DEY => dec ry, update ps".to_string());
                 self.ry = self.ry.wrapping_sub(1);
-                self.ps.set_bit(BitMasks::Z, self.ry == 0);
-                self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
+                self.update_n_flag(self.ry);
+                self.update_z_flag(self.ry);
                 self.cycles += 1;
             }
             EOR(mode) => self.eor(mode),
@@ -327,15 +327,15 @@ impl CPU6502 {
             INX(IMP) => {
                 self.debug_imm("INX => inc rx, update ps".to_string());
                 self.rx = self.rx.wrapping_add(1);
-                self.ps.set_bit(BitMasks::Z, self.rx == 0);
-                self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
+                self.update_n_flag(self.rx);
+                self.update_z_flag(self.rx);
                 self.cycles += 1;
             }
             INY(IMP) => {
                 self.debug_imm("INY => inc ry, update ps".to_string());
                 self.ry = self.ry.wrapping_add(1);
-                self.ps.set_bit(BitMasks::Z, self.ry == 0);
-                self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
+                self.update_n_flag(self.ry);
+                self.update_z_flag(self.ry);
                 self.cycles += 1;
             }
             JMP(mode) => self.jmp(mode),
@@ -488,29 +488,29 @@ impl CPU6502 {
             TAX(IMP) => {
                 self.debug_imm("TAX => set rx to ac".to_string());
                 self.rx = self.ac;
-                self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
-                self.ps.set_bit(BitMasks::Z, self.rx == 0);
+                self.update_n_flag(self.rx);
+                self.update_z_flag(self.rx);
                 self.cycles += 1;
             }
             TAY(IMP) => {
                 self.debug_imm("TAY => set ry to ac".to_string());
                 self.ry = self.ac;
-                self.ps.set_bit(BitMasks::N, self.ry & 0b1000_0000 != 0);
-                self.ps.set_bit(BitMasks::Z, self.ry == 0);
+                self.update_n_flag(self.ry);
+                self.update_z_flag(self.ry);
                 self.cycles += 1;
             }
             TSX(IMP) => {
                 self.debug_imm("TSX => set rx to sp".to_string());
                 self.rx = self.sp;
-                self.ps.set_bit(BitMasks::N, self.rx & 0b1000_0000 != 0);
-                self.ps.set_bit(BitMasks::Z, self.rx == 0);
+                self.update_n_flag(self.rx);
+                self.update_z_flag(self.rx);
                 self.cycles += 1;
             }
             TXA(IMP) => {
                 self.debug_imm("TXA => set ac to rx".to_string());
                 self.ac = self.rx;
-                self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
-                self.ps.set_bit(BitMasks::Z, self.ac == 0);
+                self.update_n_flag(self.ac);
+                self.update_z_flag(self.ac);
                 self.cycles += 1;
             }
             TXS(IMP) => {
@@ -521,8 +521,8 @@ impl CPU6502 {
             TYA(IMP) => {
                 self.debug_imm("TYA => set ac to ry".to_string());
                 self.ac = self.ry;
-                self.ps.set_bit(BitMasks::N, self.ac & 0b1000_0000 != 0);
-                self.ps.set_bit(BitMasks::Z, self.ac == 0);
+                self.update_n_flag(self.ac);
+                self.update_z_flag(self.ac);
                 self.cycles += 1;
             }
             // Shouldn't get here

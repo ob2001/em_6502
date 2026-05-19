@@ -88,7 +88,7 @@ impl Mem {
                     },
                     "fill_byte" => {
                         let fill_byte = post.next().unwrap();
-                        let fill_byte = u8::from_str_radix(fill_byte, byte_radix_mode).expect(&format!("Error parsing fill_byte in line {}: \"{}\" in an invalid base-{byte_radix_mode} representation of a byte", i + 1, fill_byte));
+                        let fill_byte = u8::from_str_radix(fill_byte, byte_radix_mode).expect(&format!("Error parsing fill_byte in line {}: \"{}\" is an invalid base-{byte_radix_mode} representation of a byte", i + 1, fill_byte));
                         ret = Self::new_all(fill_byte);
                     },
                     addr => {

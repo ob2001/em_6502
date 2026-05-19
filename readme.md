@@ -14,11 +14,11 @@ Can direct CPU behaviour when decoding the HLT opcode specifically, as well as t
 - [ ] Complete docstrings.
 - [x] Add debugging information for remaining instructions.
 - [ ] Test all cpu instructions.
-  - [x] Ensure correct functionality.
-  - [ ] Check cpu cycles are correct and consistent during runtime.
+  - [ ] Ensure correct functionality.
+  - [x] Check cpu cycles are correct and consistent during runtime.
   - [x] Debugging outputs.
-- [ ] Implement interactive terminal environment to build and run CPUs and memory
-  - [ ] Improve interactive terminal environment
+- [ ] Interactive terminal environment
+  - [ ] Implement interactive terminal environment to build and run CPUs and memory
 
 # Documentation and information sources:
 - http://www.6502.org/users/obelisk/6502/index.html

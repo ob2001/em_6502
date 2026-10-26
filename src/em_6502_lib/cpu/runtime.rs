@@ -4,9 +4,9 @@ use crate::{prelude::*, cpu::CPU6502};
 impl CPU6502 {
     /// Reset the CPU to power-on state, then set the program counter to the address
     /// stored at the Power On Reset memory location (0xFFFC/0xFFFD).
-    pub fn power_on(&mut self, dbg: bool) {
+    pub fn power_on(&mut self, dbg_mode: bool) {
         self.reset();
-        self.set_dbg_mode(dbg);
+        self.set_dbg_mode(dbg_mode);
 
         self.clear_debug_msg();
 
@@ -19,8 +19,8 @@ impl CPU6502 {
     }
 
     /// Perform CPU reset then begin emulation loop.
-    pub fn power_on_and_run(&mut self, debugging: bool) {
-        self.power_on(debugging);
+    pub fn power_on_and_run(&mut self, dbg_mode: bool) {
+        self.power_on(dbg_mode);
 
         self.push_debug_msg("run".to_string());
         loop {
@@ -34,7 +34,7 @@ impl CPU6502 {
                 _ => {},
             }
 
-            if self.cycle_limit > 0 && self.cycles >= self.cycle_limit {
+            if let Some(c_lim) = self.cycle_limit && c_lim > 0 && self.cycles >= c_lim {
                 self.clear_debug_msg();
                 self.debug_imm("!!! CPU halting on exceeding cycle limit !!!".to_string());
                 break;
@@ -63,7 +63,7 @@ impl CPU6502 {
                 Ok(_) => {},
             }
 
-            if self.cycle_limit > 0 && self.cycles >= self.cycle_limit {
+            if let Some(c_lim) = self.cycle_limit && c_lim > 0 && self.cycles >= c_lim {
                 self.clear_debug_msg();
                 self.debug_imm("!!! CPU halting on exceeding cycle limit !!!".to_string());
                 break;
@@ -79,7 +79,7 @@ impl CPU6502 {
     /// Fetch the CPUByte stored in the memory location pointed to by pc.
     /// 
     /// Increments pc.
-    pub fn fetch_next_byte(&mut self) -> CPUByte {
+    pub(crate) fn fetch_next_byte(&mut self) -> Byte {
         self.debug_imm(format!("fetch_next_byte"));
         self.cycles += 1;
         let ret = self.cpu_mem.byte_at(self.pc);
@@ -96,7 +96,7 @@ impl CPU6502 {
     /// and return them as a CPUWord (little endian).
     /// 
     /// Increments pc twice.
-    pub fn fetch_next_word(&mut self) -> CPUWord {
+    pub(crate) fn fetch_next_word(&mut self) -> Word {
         self.push_debug_msg("fetch_next_word".to_string());
 
         self.push_debug_msg("low".to_string());
@@ -107,7 +107,7 @@ impl CPU6502 {
         let high = self.fetch_next_byte();
         self.restore_debug_msg();
         
-        let ret = ((high as CPUWord) << 8) + low as CPUWord;
+        let ret = ((high as Word) << 8) + low as Word;
         self.debug_ret_word("fetch_next_word", ret);
         
         self.restore_debug_msg();
@@ -119,7 +119,7 @@ impl CPU6502 {
     /// Fetches the CPUByte stored in the memory location at the provided address.
     /// 
     /// Does not affect pc.
-    pub fn fetch_byte_at(&mut self, addr: CPUWord) -> CPUByte {
+    pub(crate) fn fetch_byte_at(&mut self, addr: Word) -> Byte {
         self.debug_imm(format!("fetch_byte_at ({addr:#06X})"));
         let  ret = self.cpu_mem.byte_at(addr);
         self.cycles += 1;
@@ -135,7 +135,7 @@ impl CPU6502 {
     /// and return them as a CPUWord (little endian).
     /// 
     /// Does not affect pc.
-    pub fn fetch_word_at(&mut self, addr: CPUWord) -> CPUWord {
+    pub(crate) fn fetch_word_at(&mut self, addr: Word) -> Word {
         self.push_debug_msg(format!("fetch_word_at ({addr:#06X})"));
 
         self.push_debug_msg("low".to_string());
@@ -146,7 +146,7 @@ impl CPU6502 {
         let high = self.fetch_byte_at(addr.wrapping_add(1));
         self.restore_debug_msg();
         
-        let ret = ((high as CPUWord) << 8).wrapping_add(low as CPUWord);
+        let ret = ((high as Word) << 8).wrapping_add(low as Word);
         self.debug_ret_word("fetch_word_at", ret);
 
         self.restore_debug_msg();
@@ -156,7 +156,7 @@ impl CPU6502 {
     /// 1 cycle
     ///
     /// Use Immediate addressing mode to obtain argument for CPU instruction
-    pub fn imm(&mut self) -> CPUByte {
+    pub(crate) fn imm(&mut self) -> Byte {
         self.push_debug_msg("IMM".to_string());
         
         let ret = self.fetch_next_byte();
@@ -170,11 +170,11 @@ impl CPU6502 {
     /// 2 cycles
     /// 
     /// Use Zero Page addressing mode to obtain argument for CPU instruction
-    pub fn zpg(&mut self) -> CPUByte {
+    pub(crate) fn zpg(&mut self) -> Byte {
         self.push_debug_msg("ZPG".to_string());
         
         let addr = self.fetch_next_byte();
-        let ret = self.fetch_byte_at(addr as CPUWord);
+        let ret = self.fetch_byte_at(addr as Word);
 
         self.debug_ret_byte("ZPG", ret);
         
@@ -185,14 +185,14 @@ impl CPU6502 {
     /// 3 cycles
     /// 
     /// Use Zero Page,X mode to obtain argument for CPU instruction
-    pub fn zpx(&mut self) -> CPUByte {
+    pub(crate) fn zpx(&mut self) -> Byte {
         self.push_debug_msg("ZPX".to_string());
         
         self.debug();
         self.cycles += 1;
         let addr = self.fetch_next_byte().wrapping_add(self.rx);
 
-        let ret = self.fetch_byte_at(addr as CPUWord);
+        let ret = self.fetch_byte_at(addr as Word);
 
         self.debug_ret_byte("ZPX", ret);
         
@@ -203,14 +203,14 @@ impl CPU6502 {
     /// 3 cycles
     /// 
     /// Use Zero Page,Y addressing mode to obtain argument for CPU instruction
-    pub fn zpy(&mut self) -> CPUByte {
+    pub(crate) fn zpy(&mut self) -> Byte {
         self.push_debug_msg("ZPY".to_string());
         
         self.debug();
         self.cycles += 1;
         let addr = self.fetch_next_byte().wrapping_add(self.ry);
 
-        let ret = self.fetch_byte_at(addr as CPUWord);
+        let ret = self.fetch_byte_at(addr as Word);
 
         self.debug_ret_byte("ZPY", ret);
         
@@ -221,7 +221,7 @@ impl CPU6502 {
     /// 3 cycles
     /// 
     /// Use Absolute addressing mode to obtain argument for CPU instruction
-    pub fn abs(&mut self) -> CPUByte {
+    pub(crate) fn abs(&mut self) -> Byte {
         self.push_debug_msg("ABS".to_string());
         
         let addr = self.fetch_next_word();
@@ -236,11 +236,11 @@ impl CPU6502 {
     /// 3 ?+ 1 cycles
     /// 
     /// Use Absolute,X addressing mode to obtain argument for CPU instruction
-    pub fn abx(&mut self) -> CPUByte {
+    pub(crate) fn abx(&mut self) -> Byte {
         self.push_debug_msg("ABX".to_string());
         
         let tmp_addr = self.fetch_next_word();
-        let addr = tmp_addr + self.rx as CPUWord;
+        let addr = tmp_addr + self.rx as Word;
         
         if addr / 256 > tmp_addr / 256 {
             self.debug_imm("page crossed".to_string());
@@ -258,11 +258,11 @@ impl CPU6502 {
     /// 3 ?+ 1 cycles
     /// 
     /// Use Absolute,Y addressing mode to obtain argument for CPU instruction
-    pub fn aby(&mut self) -> CPUByte {
+    pub(crate) fn aby(&mut self) -> Byte {
         self.push_debug_msg("ABY".to_string());
 
         let tmp_addr = self.fetch_next_word();
-        let addr = tmp_addr + self.ry as CPUWord;
+        let addr = tmp_addr + self.ry as Word;
 
         if addr / 256 > tmp_addr / 256 {
             self.debug_imm("page crossed".to_string());
@@ -280,14 +280,14 @@ impl CPU6502 {
     /// 5 cycles
     /// 
     /// Use Pre-Indexed Indirect addressing mode to obtain argument for CPU instruction
-    pub fn idx(&mut self) -> CPUByte {
+    pub(crate) fn idx(&mut self) -> Byte {
         self.push_debug_msg("IDX".to_string());
 
         self.debug();
         self.cycles += 1;
         let tmp_addr = self.fetch_next_byte().wrapping_add(self.rx);
 
-        let addr = self.fetch_word_at(tmp_addr as CPUWord);
+        let addr = self.fetch_word_at(tmp_addr as Word);
         let ret = self.fetch_byte_at(addr);
 
         self.debug_ret_byte("IDX", ret);
@@ -299,12 +299,12 @@ impl CPU6502 {
     /// 4 ?+ 1 cycles
     /// 
     /// Use Post-Indexed addressing mode to obtain argument for CPU instruction
-    pub fn idy(&mut self) -> CPUByte {
+    pub(crate) fn idy(&mut self) -> Byte {
         self.push_debug_msg("IDY".to_string());
 
         let tmp_addr = self.fetch_next_byte();
-        let tmp_addr = self.fetch_word_at(tmp_addr as CPUWord);
-        let addr = tmp_addr.wrapping_add(self.ry as CPUWord);
+        let tmp_addr = self.fetch_word_at(tmp_addr as Word);
+        let addr = tmp_addr.wrapping_add(self.ry as Word);
 
         if addr / 256 > tmp_addr / 256 {
             self.debug_imm("page crossed".to_string());
@@ -324,11 +324,11 @@ impl CPU6502 {
     /// Push the value of the passed CPUByte to the stack at the memory location currently indicated by sp.
     /// 
     /// Decrements sp.
-    pub fn push_byte(&mut self, val: CPUByte) {       
+    pub(crate) fn push_byte(&mut self, val: Byte) {       
         self.push_debug_msg("push_byte".to_string());
 
         self.debug();
-        *self.cpu_mem.mut_byte_at(0x0100u16.wrapping_add(self.sp as CPUWord)) = val;
+        *self.cpu_mem.mut_byte_at(0x0100u16.wrapping_add(self.sp as Word)) = val;
         
         // Don't need to check is stack overflows. Will likely crash process, this is correct behaviour.
         self.sp = self.sp.wrapping_sub(1);
@@ -342,12 +342,12 @@ impl CPU6502 {
     /// Pulls (pops) the last-pushed CPUByte value from the stack at the memory location indicated by sp (- 1).
     /// 
     /// Increments sp.
-    pub fn pull_byte(&mut self) -> CPUByte {
+    pub(crate) fn pull_byte(&mut self) -> Byte {
         // Don't need to check if stack underflows. Will likely crash process, this is correct behaviour.
         self.push_debug_msg("pull_byte".to_string());
 
         self.debug();
-        let ret = self.cpu_mem.byte_at(0x0100 + self.sp as CPUWord);
+        let ret = self.cpu_mem.byte_at(0x0100 + self.sp as Word);
         self.sp = self.sp.wrapping_add(1);
         self.cycles += 1;
 
@@ -362,7 +362,7 @@ impl CPU6502 {
     /// Push the value of the passed CPUWord to the stack starting at the memory location currently indicated by sp.
     /// 
     /// Decrements sp twice.
-    pub fn push_word(&mut self, val: CPUWord) {
+    pub(crate) fn push_word(&mut self, val: Word) {
         let [high, low] = val.to_be_bytes();
 
         self.push_debug_msg(format!("push_word => store low ({val:#04x})"));        
@@ -380,7 +380,7 @@ impl CPU6502 {
     /// at the memory location indicated by sp.
     /// 
     /// Increments sp twice.
-    pub fn pull_word(&mut self) -> CPUWord {                
+    pub(crate) fn pull_word(&mut self) -> Word {                
         self.push_debug_msg("pull_word => pull high".to_string());
         let high = self.pull_byte();
         self.restore_debug_msg();
@@ -389,7 +389,7 @@ impl CPU6502 {
         let low = self.pull_byte();
         self.restore_debug_msg();
         
-        let ret = ((high as CPUWord) << 8) + low as CPUWord;
+        let ret = ((high as Word) << 8) + low as Word;
 
         self.debug_ret_word("pull_word", ret);
         ret
@@ -398,14 +398,14 @@ impl CPU6502 {
     /// 0 cycles
     /// 
     /// Updates the zero flag based on the CPUByte value passed.
-    pub fn update_z_flag(&mut self, val: CPUByte) {
+    pub(crate) fn update_z_flag(&mut self, val: Byte) {
         self.ps.set_bit(BitMasks::Z, val == 0);
     }
 
     /// 0 cycles
     /// 
     /// Updates the negative flag based on the CPUByte value passed.
-    pub fn update_n_flag(&mut self, val: CPUByte) {
+    pub(crate) fn update_n_flag(&mut self, val: Byte) {
         self.ps.set_bit(BitMasks::N, val & 0b1000_0000 != 0);
     }
 
@@ -414,7 +414,7 @@ impl CPU6502 {
     /// Updates the overflow flag based on the two input CPUByte values and the
     /// output CPUByte value. (Indicates an incorrect 2's complement result from an
     /// arithmetic operation).
-    pub fn update_v_flag(&mut self, val1: CPUByte, val2: CPUByte, out: CPUByte) {
+    pub(crate) fn update_v_flag(&mut self, val1: Byte, val2: Byte, out: Byte) {
         let init_val_is_negative = val1 & 0b1000_0000 != 0;
         let add_val_is_negative = val2 & 0b1000_0000 != 0;
         let final_val_is_negative = out & 0b1000_0000 != 0;

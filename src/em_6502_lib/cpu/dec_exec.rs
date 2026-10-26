@@ -1,13 +1,11 @@
 use crate::{prelude::*, cpu::CPU6502, bits::BitField};
 
-pub type InstructionResult = Result<CPUInstruction, String>;
-
 /// CPU instruction decoding and execution functions
 impl CPU6502 {
     /// 0 cycles
     /// 
     /// Decode a CPUByte into its corresponding instruction
-    pub fn decode(&self, opcode: CPUByte) -> InstructionResult {
+    pub fn decode(&self, opcode: Byte) -> Result<CPUInstruction, String> {
         use CPUInstruction::*;
         use CPUAddrMode::*;
 
@@ -168,14 +166,14 @@ impl CPU6502 {
             0xFF => {
                 if self.allow_hlt {
                     HLT(IMP) 
-                } else if self.illegal_opcode_mode {
+                } else if self.illegal_opcodes_allowed {
                     NOP(IMP)
                 } else {
                     return Err(format!("{opcode:#04X}"))
                 }
             }
             ill => {
-                if self.illegal_opcode_mode {
+                if self.illegal_opcodes_allowed {
                     match ill {
                         0x64 => STZ(ZPG),
                         0x74 => STZ(ZPX),
@@ -193,7 +191,7 @@ impl CPU6502 {
     /// 1 cycle
     /// 
     /// Fetch the next CPUByte and decode it as the next CPU instruction.
-    pub fn decode_next_ins(&mut self) -> InstructionResult {
+    pub fn decode_next_ins(&mut self) -> Result<CPUInstruction, String> {
         self.push_debug_msg("decode_next_ins".to_string());
         let opcode = self.fetch_next_byte();
         self.restore_debug_msg();
@@ -211,7 +209,7 @@ impl CPU6502 {
     /// 
     /// Matches on the next CPUByte into its Instruction code, then executes
     /// the corresponding instruction.
-    pub fn execute_next_ins(&mut self) -> InstructionResult {
+    pub fn execute_next_ins(&mut self) -> Result<CPUInstruction, String> {
         use CPUInstruction::*;
         use CPUAddrMode::*;
         self.push_debug_msg("execute_next_ins".to_string());
@@ -355,7 +353,7 @@ impl CPU6502 {
 
                 self.push_debug_msg("fetch addr_high and set pc".to_string());
                 let addr_high = self.fetch_next_byte();
-                self.pc = ((addr_high as CPUWord) << 8) + addr_low as CPUWord;
+                self.pc = ((addr_high as Word) << 8) + addr_low as Word;
                 self.restore_debug_msg();
 
                 self.restore_debug_msg();

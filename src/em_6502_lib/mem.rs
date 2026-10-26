@@ -1,12 +1,14 @@
 use crate::prelude::*;
 
-pub struct Mem { mem: [CPUByte; CPU_MEMSIZE], debug_bytes_per_line: usize }
-pub type MemResult = Result<Mem, String>;
+pub struct Mem<const MEM_SIZE: usize> { mem: [Byte; MEM_SIZE], debug_bytes_per_line: usize }
+pub type MemResult<const MEM_SIZE: usize> = Result<Mem<MEM_SIZE>, String>;
 
-impl Mem {
+pub enum MemPrintFmt { Hex, Dec, Ins }
+
+impl<const MEM_SIZE: usize> Mem<MEM_SIZE> {
     /// Create new CPU memory with all bytes set to the provided value
-    pub fn new_all(b: CPUByte) -> Self {
-        Self { mem: [b; CPU_MEMSIZE], debug_bytes_per_line: 24 }
+    pub fn new_all(b: Byte) -> Self {
+        Self { mem: [b; MEM_SIZE], debug_bytes_per_line: 24 }
     }
 
     /// Create new cpu memory with all NOP instructions
@@ -20,10 +22,10 @@ impl Mem {
     }
 
     /// Create new zeroed cpu memory with `code` inserted in range `mem[idx]` - `mem[idx + code.len()`.
-    pub fn new_nops_with_code_at(code: &[CPUByte], idx: usize) -> MemResult {
-        if idx > CPU_MEMSIZE {
+    pub fn new_nops_with_code_at(code: &[Byte], idx: usize) -> MemResult<MEM_SIZE> {
+        if idx > MEM_SIZE {
             Err("Error: code insertion point out of memory bounds".to_string())
-        } else if code.len() + idx > CPU_MEMSIZE {
+        } else if code.len() + idx > MEM_SIZE {
             Err("Error: code overflows memory bounds. Consider inserting at an earlier index".to_string())
         } else {
             let mut ret = Self::new_nops();
@@ -37,10 +39,10 @@ impl Mem {
     }
 
     /// Create new cpu memory of all HLTs with `code` inserted in range `mem[idx]` - `mem[idx] + code.len()`.
-    pub fn new_hlts_with_code_at(code: &[CPUByte], idx: usize) -> MemResult {
-        if idx > CPU_MEMSIZE {
+    pub fn new_hlts_with_code_at(code: &[Byte], idx: usize) -> MemResult<MEM_SIZE> {
+        if idx > MEM_SIZE {
             Err("Error: code insertion point out of memory bounds".to_string())
-        } else if code.len() + idx > CPU_MEMSIZE {
+        } else if code.len() + idx > MEM_SIZE {
             Err("Error: code overflows memory bounds. Consider inserting at an earlier index".to_string())
         } else {
             let mut ret = Self::new_hlts();
@@ -54,7 +56,7 @@ impl Mem {
     }
 
     /// Generate CPU memory from a file specification
-    pub fn new_from_file(file: String) -> MemResult {
+    pub fn new_from_file(file: String) -> MemResult<MEM_SIZE> {
         if let Ok(f) = std::fs::read_to_string(&file) {
             let mut ret = Self::new_nops();
             let mut byte_radix_mode: u32 = 16;
@@ -86,6 +88,7 @@ impl Mem {
                             _ => panic!("Error parsing byte_radix_mode in line {}. Only support binary, octal, decimal, or hexadecimal modes.", i + 1),
                         }
                     },
+                    // "fill_byte" will overwrite any previously specified memory locations
                     "fill_byte" => {
                         let fill_byte = post.next().unwrap();
                         let fill_byte = u8::from_str_radix(fill_byte, byte_radix_mode).expect(&format!("Error parsing fill_byte in line {}: \"{}\" is an invalid base-{byte_radix_mode} representation of a byte", i + 1, fill_byte));
@@ -93,13 +96,12 @@ impl Mem {
                     },
                     addr => {
                         let address = u16::from_str_radix(addr, 16).expect(&format!("Error parsing address predicate in line {}: \"{}\" is an invalid hexadecimal representation of 2 bytes", i + 1, addr));
-                        let mut mem_line: Vec<u8> = Vec::new();
-                        
-                        for byte in post {
-                            let byte = byte.trim();
-                            let byte = u8::from_str_radix(byte, byte_radix_mode).expect(&format!("Error parsing byte in line {}: \"{}\" is an invalid base-{byte_radix_mode} representation of a byte", i + 1, byte));
-                            mem_line.push(byte);
-                        }
+                        let mem_line: Vec<u8> = post.into_iter()
+                            .map(|byte| 
+                                u8::from_str_radix(byte.trim(), byte_radix_mode)
+                                .expect(&format!("Error parsing byte in line {}: \"{}\" is an invalid base-{byte_radix_mode} representation of a byte", i + 1, byte))
+                            )
+                            .collect();
 
                         ret.insert_code_at(&mem_line, address as usize)?;
                     }
@@ -115,10 +117,10 @@ impl Mem {
     /// Modify existing cpu memory `mem` by inserting `code` in range `mem[idx]` - `mem[idx + code.len()]`.
     ///
     /// Will overwrite memory in modification range.
-    pub fn insert_code_at(&mut self, code: &[CPUByte], idx: usize) -> Result<(), &'static str> {
-        if idx > CPU_MEMSIZE {
+    pub fn insert_code_at(&mut self, code: &[Byte], idx: usize) -> Result<(), &'static str> {
+        if idx > MEM_SIZE {
             Err("Error: code insertion point out of memory bounds")
-        } else if code.len() + idx > CPU_MEMSIZE {
+        } else if code.len() + idx > MEM_SIZE {
             Err("Error: code overflows memory bounds. Consider inserting at an earlier index")
         } else {
             for (offset, &byte) in code.iter().enumerate() {
@@ -129,26 +131,67 @@ impl Mem {
     }
 
     /// Return the value of the byte at the provided memory address
-    pub fn byte_at(&self, addr: CPUWord) -> CPUByte {
+    pub fn byte_at(&self, addr: Word) -> Byte {
         self.mem[addr as usize]
     }
 
     /// Return mutable reference to the byte stored at the provided memory address
-    pub fn mut_byte_at(&mut self, addr: CPUWord) -> &mut CPUByte {
+    pub fn mut_byte_at(&mut self, addr: Word) -> &mut Byte {
         &mut self.mem[addr as usize]
     }
 
     /// Return the entire contents of the structure
-    pub fn get_all(&self) -> &[CPUByte; CPU_MEMSIZE] {
+    pub fn get_all(&self) -> &[Byte; MEM_SIZE] {
         &self.mem
     }
 
     pub fn set_debug_bytes_per_line(&mut self, dbpl: usize) {
         self.debug_bytes_per_line = dbpl;
     }
+
+    pub fn mem_fmt(&self, fmt: MemPrintFmt) -> String {
+        let mut ret = String::new();
+        match fmt {
+            MemPrintFmt::Hex => {
+                ret.push_str(&format!("{:-^1$}\n", "!!! MEMORY DUMP !!!", self.debug_bytes_per_line * 4 + 8));
+                for (i, &byte) in self.mem.iter().enumerate() {
+                    if i % self.debug_bytes_per_line == 0 {
+                        ret.push_str(&format!("[{:#06X}]: ", i));
+                    }
+
+                    if (i + 1) % self.debug_bytes_per_line != 0 {
+                        ret.push_str(&format!("{:02X}, ", byte));
+                    } else {
+                        ret.push_str(&format!("{:02X}\n", byte));
+                    }
+                }
+
+                ret
+            },
+            MemPrintFmt::Dec => {
+                ret.push_str(&format!("{:-^1$}\n", "!!! MEMORY DUMP !!!", self.debug_bytes_per_line * 4 + 8));
+                for (i, &byte) in self.mem.iter().enumerate() {
+                    if i % self.debug_bytes_per_line == 0 {
+                        ret.push_str(&format!("[{:#06X}]: ", i));
+                    }
+
+                    if (i + 1) % self.debug_bytes_per_line != 0 {
+                        ret.push_str(&format!("{:3}, ", byte));
+                    } else {
+                        ret.push_str(&format!("{:3}\n", byte));
+                    }
+                }
+
+                ret
+            },
+            MemPrintFmt::Ins => {
+                todo!("Dumping memory as CPU instructions not yet implemented")
+            },
+        }
+    }
 }
 
-impl std::fmt::Debug for Mem {
+impl<const MEM_SIZE: usize> std::fmt::Debug for Mem<MEM_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\n{:-^1$}\n", "!!! MEMORY DUMP !!!", self.debug_bytes_per_line * 4 + 8)?;
         for (i, &byte) in self.mem.iter().enumerate() {

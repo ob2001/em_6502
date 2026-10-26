@@ -7,7 +7,7 @@ impl CPU6502 {
     /// 
     /// Adds value obtained from addressing mode to value in
     /// ACC. Overflow from addition sets the V and C flags.
-    pub fn adc(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn adc(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("ADC".to_string());
 
         let init_val = self.ac;
@@ -37,7 +37,7 @@ impl CPU6502 {
     /// 
     /// Ands value obtained from addressing mode with value in
     /// ACC.
-    pub fn and(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn and(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("AND".to_string());
 
         self.ac &= match mode {
@@ -63,21 +63,21 @@ impl CPU6502 {
     /// Shifts value in location obtained from addressing mode
     /// one bit left. Bit 0 is set to 0 and the original
     /// bit 7 is placed in the C flag.
-    pub fn asl(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn asl(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("ASL".to_string());
 
         let addr = match mode {
             ACC => None,
-            ZPG => Some(self.fetch_next_byte() as CPUWord),
+            ZPG => Some(self.fetch_next_byte() as Word),
             ZPX => {
-                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as CPUWord);
+                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as Word);
                 self.debug_imm("get zpx addr".to_string());
                 self.cycles += 1;
                 ret
             }
             ABS => Some(self.fetch_next_word()),
             ABX => {
-                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as CPUWord));
+                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as Word));
                 self.debug_imm("get abx addr".to_string());
                 self.cycles += 1;
                 ret
@@ -122,7 +122,7 @@ impl CPU6502 {
     /// - BRK
     /// - BVC
     /// - BVS
-    pub fn branch(&mut self, cond: bool) {
+    pub(crate) fn branch(&mut self, cond: bool) {
         // Debug message is set and restored from caller
         let operand = self.fetch_next_byte();
         if cond {
@@ -151,7 +151,7 @@ impl CPU6502 {
     /// respectively, of value in location obtained from
     /// addressing mode. The result of the value obtained when
     /// anded with ACC is used to set or clear the Z flag.
-    pub fn bit(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn bit(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("BIT".to_string());
 
         let val = match mode {
@@ -172,7 +172,7 @@ impl CPU6502 {
     /// Forces a CPU interrupt. Pushes pc and ps to the stack
     /// before setting B flag and setting pc to the location
     /// pointed to by the IRQ interrupt vector ($FFFE-$FFFF).
-    pub fn brk(&mut self) {
+    pub(crate) fn brk(&mut self) {
         self.push_debug_msg("BRK".to_string());
         self.fetch_next_byte();
 
@@ -197,7 +197,7 @@ impl CPU6502 {
     /// Compares value at location obtained from addressing mode
     /// with ACC and updates the C, Z, and N flags based on the
     /// result of the comparison.
-    pub fn cmp(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn cmp(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("CMP".to_string());
 
         let val = match mode {
@@ -220,7 +220,7 @@ impl CPU6502 {
     }
 
     /// 1 - 3 cycles
-    pub fn cpx(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn cpx(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("CPX".to_string());
 
         let val = match mode {
@@ -238,7 +238,7 @@ impl CPU6502 {
     }
 
     /// 1 - 3 cycles
-    pub fn cpy(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn cpy(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("CPY".to_string());
 
         let val = match mode {
@@ -256,13 +256,13 @@ impl CPU6502 {
     }
 
     /// 4 - 6 cycles
-    pub fn dec(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn dec(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("DEC".to_string());
 
         let addr = match mode {
             ZPG => {
                 self.push_debug_msg("zpg_addr".to_string());
-                let ret = self.fetch_next_byte() as CPUWord;
+                let ret = self.fetch_next_byte() as Word;
                 self.debug_ret_word("zpg_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -270,7 +270,7 @@ impl CPU6502 {
             ZPX => {
                 self.push_debug_msg("zpx_addr".to_string());
                 self.debug();
-                let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                let ret = self.fetch_next_byte().wrapping_add(self.rx) as Word;
                 self.cycles += 1;
                 self.debug_ret_word("zpx_addr", ret);
                 self.restore_debug_msg();
@@ -286,7 +286,7 @@ impl CPU6502 {
             ABX => {
                 self.push_debug_msg("abx_addr".to_string());
                 self.debug();
-                let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
+                let ret = self.fetch_next_word().wrapping_add(self.rx as Word);
                 self.cycles += 1;
                 self.debug_ret_word("abx_addr", ret);
                 self.restore_debug_msg();
@@ -295,13 +295,13 @@ impl CPU6502 {
             _ => panic!("Invalid addressing mode for INC"),
         };
 
-        let mut byte = self.cpu_mem.byte_at(addr as CPUWord);
+        let mut byte = self.cpu_mem.byte_at(addr as Word);
         self.debug_imm(format!("fetch byte at {addr:#06X} ({byte:#04X})"));
         self.cycles += 1;
         
         byte = byte.wrapping_sub(1);
         self.debug_imm(format!("decrement byte at {addr:#06X} -> ({byte:#04X})"));
-        *self.cpu_mem.mut_byte_at(addr as CPUWord) = byte;
+        *self.cpu_mem.mut_byte_at(addr as Word) = byte;
         self.cycles += 1;
         
         self.update_z_flag(byte);
@@ -311,7 +311,7 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
-    pub fn eor(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn eor(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("EOR".to_string());
 
         let val = match mode {
@@ -333,13 +333,13 @@ impl CPU6502 {
         self.restore_debug_msg();
     }
 
-    pub fn inc(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn inc(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("INC".to_string());
 
         let addr = match mode {
             ZPG => {
                 self.push_debug_msg("zpg_addr".to_string());
-                let ret = self.fetch_next_byte() as CPUWord;
+                let ret = self.fetch_next_byte() as Word;
                 self.debug_ret_word("zpg_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -347,7 +347,7 @@ impl CPU6502 {
             ZPX => {
                 self.push_debug_msg("zpx_addr".to_string());
                 self.debug();
-                let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                let ret = self.fetch_next_byte().wrapping_add(self.rx) as Word;
                 self.cycles += 1;
                 self.debug_ret_word("zpx_addr", ret);
                 self.restore_debug_msg();
@@ -363,7 +363,7 @@ impl CPU6502 {
             ABX => {
                 self.push_debug_msg("abx_addr".to_string());
                 self.debug();
-                let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
+                let ret = self.fetch_next_word().wrapping_add(self.rx as Word);
                 self.cycles += 1;
                 self.debug_ret_word("abx_addr", ret);
                 self.restore_debug_msg();
@@ -372,13 +372,13 @@ impl CPU6502 {
             _ => panic!("Invalid addressing mode for INC"),
         };
 
-        let mut byte = self.cpu_mem.byte_at(addr as CPUWord);
+        let mut byte = self.cpu_mem.byte_at(addr as Word);
         self.debug_imm(format!("fetch byte at {addr:#06X} ({byte:#04X})"));
         self.cycles += 1;
 
         byte = byte.wrapping_add(1);
         self.debug_imm(format!("increment byte at {addr:#06X} -> ({byte:#04X})"));
-        *self.cpu_mem.mut_byte_at(addr as CPUWord) = byte;
+        *self.cpu_mem.mut_byte_at(addr as Word) = byte;
         self.cycles += 1;
 
         self.update_z_flag(byte);
@@ -397,7 +397,7 @@ impl CPU6502 {
     /// See http://www.6502.org/users/obelisk/6502/reference.html#JMP for more information.
     /// 
     /// Moot point if indirect vectors are ensured not to fall upon page boundaries
-    pub fn jmp(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn jmp(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("JMP".to_string());
 
         self.pc = match mode {
@@ -415,7 +415,7 @@ impl CPU6502 {
     /// 1 - 5 cycles
     /// 
     /// Implements functionality of the LDA Instruction
-    pub fn lda(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn lda(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("LDA".to_string());
 
         self.ac = match mode {
@@ -437,7 +437,7 @@ impl CPU6502 {
     }
 
     /// 1 - 3 cycles
-    pub fn ldx(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn ldx(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("LDX".to_string());
 
         self.rx = match mode {
@@ -456,7 +456,7 @@ impl CPU6502 {
     }
 
     /// 1 - 3 cycles
-    pub fn ldy(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn ldy(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("LDY".to_string());
 
         self.ry = match mode {
@@ -475,21 +475,21 @@ impl CPU6502 {
     }
 
     /// 1 - 6 cycles
-    pub fn lsr(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn lsr(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("LSR".to_string());
 
         let addr = match mode {
             ACC => None,
             ZPG => {
-                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as CPUWord);
+                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as Word);
                 self.debug_imm("get zpx addr".to_string());
                 self.cycles += 1;
                 ret
             }
-            ZPX => Some(self.fetch_next_byte().wrapping_add(self.rx) as CPUWord),
+            ZPX => Some(self.fetch_next_byte().wrapping_add(self.rx) as Word),
             ABS => Some(self.fetch_next_word()),
             ABX => {
-                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as CPUWord));
+                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as Word));
                 self.debug_imm("get abx addr".to_string());
                 self.cycles += 1;
                 ret
@@ -523,7 +523,7 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
-    pub fn ora(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn ora(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("ORA".to_string());
 
         self.ac |= match mode {
@@ -545,21 +545,21 @@ impl CPU6502 {
     }
 
     /// 1 - 6 cycles
-    pub fn rol(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn rol(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("ROL".to_string());
 
         let addr = match mode {
             ACC => None,
-            ZPG => Some(self.fetch_next_byte() as CPUWord),
+            ZPG => Some(self.fetch_next_byte() as Word),
             ZPX => {
-                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as CPUWord);
+                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as Word);
                 self.debug_imm("get zpx addr".to_string());
                 self.cycles += 1;
                 ret
             }
             ABS => Some(self.fetch_next_word()),
             ABX => {
-                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as CPUWord));
+                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as Word));
                 self.debug_imm("get abx addr".to_string());
                 self.cycles += 1;
                 ret
@@ -593,21 +593,21 @@ impl CPU6502 {
     }
 
     /// 1 - 6 cycles
-    pub fn ror(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn ror(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("ROR".to_string());
 
         let addr = match mode {
             ACC => None,
-            ZPG => Some(self.fetch_next_byte() as CPUWord),
+            ZPG => Some(self.fetch_next_byte() as Word),
             ZPX => {
-                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as CPUWord);
+                let ret = Some(self.fetch_next_byte().wrapping_add(self.rx) as Word);
                 self.debug_imm("get zpx addr".to_string());
                 self.cycles += 1;
                 ret
             }
             ABS => Some(self.fetch_next_word()),
             ABX => {
-                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as CPUWord));
+                let ret = Some(self.fetch_next_word().wrapping_add(self.rx as Word));
                 self.debug_imm("get abx addr".to_string());
                 self.cycles += 1;
                 ret
@@ -641,9 +641,9 @@ impl CPU6502 {
     }
 
     /// 1 - 5 cycles
-    pub fn sbc(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn sbc(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("SBC".to_string());
-
+        
         let val = match mode {
             IMM => self.imm(),
             ZPG => self.zpg(),
@@ -654,11 +654,12 @@ impl CPU6502 {
             IDY => self.idy(),
             _ => panic!("Invalid address mode for SBC"),
         };
-
+        
         let orig_val = self.ac;
+        // ! May not behave correctly
         self.ac = self.ac.wrapping_sub(val.wrapping_add(if !self.ps.test_bit(BitMasks::C) {1} else {0}));
 
-        self.update_v_flag(orig_val, val, self.ac);
+        self.update_v_flag(orig_val, val.wrapping_add(if !self.ps.test_bit(BitMasks::C) {1} else {0}).wrapping_neg(), self.ac);
         if self.ps.test_bit(BitMasks::V) {
             self.ps.set_bit(BitMasks::C, false);
         }
@@ -669,13 +670,13 @@ impl CPU6502 {
     }
 
     /// 2 - 5 cycles
-    pub fn sta(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn sta(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("STA".to_string());
 
         let addr = match mode {
             ZPG => {
                 self.push_debug_msg("zpg_addr".to_string());
-                let ret = self.fetch_next_byte() as CPUWord;
+                let ret = self.fetch_next_byte() as Word;
                 self.debug_ret_word("zpg_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -683,7 +684,7 @@ impl CPU6502 {
             ZPX => {
                 self.push_debug_msg("zpx_addr".to_string());
                 self.debug();
-                let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                let ret = self.fetch_next_byte().wrapping_add(self.rx) as Word;
                 self.cycles += 1;
                 self.debug_ret_word("zpx_addr", ret);
                 self.restore_debug_msg();
@@ -698,7 +699,7 @@ impl CPU6502 {
             }
             ABX => {
                 self.push_debug_msg("abx_addr".to_string());
-                let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
+                let ret = self.fetch_next_word().wrapping_add(self.rx as Word);
                 self.cycles += 1;
                 self.debug_ret_word("abx_addr", ret);
                 self.restore_debug_msg();
@@ -706,7 +707,7 @@ impl CPU6502 {
             },
             ABY => {
                 self.push_debug_msg("aby_addr".to_string());
-                let ret = self.fetch_next_word().wrapping_add(self.ry as CPUWord);
+                let ret = self.fetch_next_word().wrapping_add(self.ry as Word);
                 self.cycles += 1;
                 self.debug_ret_word("aby_addr", ret);
                 self.restore_debug_msg();
@@ -714,7 +715,7 @@ impl CPU6502 {
             },
             IDX => {
                 self.push_debug_msg("idx_addr".to_string());
-                let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                let addr = self.fetch_next_byte().wrapping_add(self.rx) as Word;
                 self.cycles += 1;
                 let ret = self.fetch_word_at(addr);
                 self.debug_ret_word("idx_addr", ret);
@@ -724,7 +725,7 @@ impl CPU6502 {
             IDY => {
                 self.push_debug_msg("idy_addr".to_string());
                 let addr = self.fetch_next_byte();
-                let ret = self.fetch_word_at(addr as CPUWord).wrapping_add(self.ry as CPUWord);
+                let ret = self.fetch_word_at(addr as Word).wrapping_add(self.ry as Word);
                 self.cycles += 1;
                 self.debug_ret_word("idy_addr", ret);
                 self.restore_debug_msg();
@@ -741,13 +742,13 @@ impl CPU6502 {
     }
 
     /// 2 - 3 cycles
-    pub fn stx(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn stx(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("STX".to_string());
 
         let addr = match mode {
             ZPG => {
                 self.push_debug_msg("zpg_addr".to_string());
-                let ret = self.fetch_next_byte() as CPUWord;
+                let ret = self.fetch_next_byte() as Word;
                 self.debug_ret_word("zpg_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -755,7 +756,7 @@ impl CPU6502 {
             ZPY => {
                 self.push_debug_msg("zpy_addr".to_string());
                 self.debug();
-                let addr = self.fetch_next_byte().wrapping_add(self.ry) as CPUWord;
+                let addr = self.fetch_next_byte().wrapping_add(self.ry) as Word;
                 self.cycles += 1;
                 self.debug_ret_word("zpy_addr", addr);
                 self.restore_debug_msg();
@@ -779,13 +780,13 @@ impl CPU6502 {
     }
 
     /// 2 - 3 cycles
-    pub fn sty(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn sty(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("STY".to_string());
 
         let addr = match mode {
             ZPG => {
                 self.push_debug_msg("zpg_addr".to_string());
-                let ret = self.fetch_next_byte() as CPUWord;
+                let ret = self.fetch_next_byte() as Word;
                 self.debug_ret_word("zpg_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -793,7 +794,7 @@ impl CPU6502 {
             ZPX => {
                 self.push_debug_msg("zpx_addr".to_string());
                 self.debug();
-                let addr = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                let addr = self.fetch_next_byte().wrapping_add(self.rx) as Word;
                 self.cycles += 1;
                 self.debug_ret_word("zpg_addr", addr);
                 self.restore_debug_msg();
@@ -818,13 +819,13 @@ impl CPU6502 {
 
     /// Implementation of ILLEGAL opcode for original 6502.
     /// Added for use in primes sample code.
-    pub fn stz(&mut self, mode: CPUAddrMode) {
+    pub(crate) fn stz(&mut self, mode: CPUAddrMode) {
         self.push_debug_msg("STZ".to_string());
 
         let addr = match mode {
             ZPG => {
                 self.push_debug_msg("zpg_addr".to_string());
-                let ret = self.fetch_next_byte() as CPUWord;
+                let ret = self.fetch_next_byte() as Word;
                 self.debug_ret_word("zpg_addr", ret);
                 self.restore_debug_msg();
                 ret
@@ -832,7 +833,7 @@ impl CPU6502 {
             ZPX => {
                 self.push_debug_msg("zpx_addr".to_string());
                 self.debug();
-                let ret = self.fetch_next_byte().wrapping_add(self.rx) as CPUWord;
+                let ret = self.fetch_next_byte().wrapping_add(self.rx) as Word;
                 self.cycles += 1;
                 self.debug_ret_word("zpx_addr", ret);
                 self.restore_debug_msg();
@@ -848,7 +849,7 @@ impl CPU6502 {
             ABX => {
                 self.push_debug_msg("abx_addr".to_string());
                 self.debug();
-                let ret = self.fetch_next_word().wrapping_add(self.rx as CPUWord);
+                let ret = self.fetch_next_word().wrapping_add(self.rx as Word);
                 self.cycles += 1;
                 self.debug_ret_word("abx_addr", ret);
                 self.restore_debug_msg();

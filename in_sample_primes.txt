@@ -5,7 +5,7 @@ fill_byte: FF
 ; Prime Number Finder
 ; Hand-assembled from code at https://atariwiki.org/wiki/Wiki.jsp?page=Advanced%206502%20Assembly%20Code%20Examples
 ;
-; Program terminates with primes less than 128 listed
+; Program terminates with primes less than 128 listed starting at 0x0001
 ;
 
                     ; .ORG $E000

@@ -417,7 +417,7 @@ pub struct CPU6502 {
     /// The value of the program counter can be modified by executing a jump,
     /// a relative branch or a subroutine call to another memory address or
     /// by returning from a subroutine or interrupt.
-    pc: CPUWord,
+    pc: Word,
 
     /// Internal
     /// 
@@ -431,7 +431,7 @@ pub struct CPU6502 {
     /// 
     /// The CPU does not detect if the stack is overflowed by excessive pushing or
     /// popping operations and will most likely result in the error crashing.
-    sp: CPUByte,
+    sp: Byte,
 
     /// Internal
     /// 
@@ -443,7 +443,7 @@ pub struct CPU6502 {
     /// 
     /// Most complex operations will need to use the accumulator for arithmetic and
     /// efficient optimisation of its use is a key feature of time critical routines.
-    ac: CPUByte,
+    ac: Byte,
 
     /// Internal
     /// 
@@ -455,7 +455,7 @@ pub struct CPU6502 {
     /// 
     /// The X register has one special function. It can be used to get a copy of the stack
     /// pointer or change its value.
-    rx: CPUByte,
+    rx: Byte,
 
     /// Internal
     /// 
@@ -464,7 +464,7 @@ pub struct CPU6502 {
     /// The Y register is similar to the X register in that it is available for holding counter
     /// or offsets memory access and supports the same set of memory load, save, and compare
     /// operations as well as increments and decrements. It has no special functions.
-    ry: CPUByte,
+    ry: Byte,
 
     /// Internal
     /// 
@@ -499,7 +499,7 @@ pub struct CPU6502 {
     /// - 0xFFFA/0xFFFB: Location of non-maskable interrupt handler
     /// - 0xFFFC/0xFFFD: Location of power on/reset location
     /// - 0xFFFE/0xFFFF: Location of BRK/interrupt request handler
-    cpu_mem: Mem,
+    cpu_mem: Mem<CPU_MEMSIZE>,
 
     /// Flag to disable or enbable debug output during execution
     dbg: bool,
@@ -523,14 +523,14 @@ pub struct CPU6502 {
     /// 
     /// When `illegal_opcode_mode == true` CPU will perform a NOP on encountering an illegal opcode
     /// (including HLT unless it's been separately enabled)
-    illegal_opcode_mode: bool,
+    illegal_opcodes_allowed: bool,
 
-    /// Defaults to 0.
+    /// Defaults to None.
     /// 
     /// Halt CPU before decoding next instruction if cycle_count >= cycle_limit.
     /// 
     /// Set cycle_limit to 0 to disable this behaviour.
-    cycle_limit: usize,
+    cycle_limit: Option<usize>,
 }
 
 /// CPU creation/setup functions. These do not interact with runtime (No CPU cycles)
@@ -549,13 +549,13 @@ impl CPU6502 {
             dbg: false,
             debug_msg: vec![],
             allow_hlt: true,
-            illegal_opcode_mode: true,
-            cycle_limit: 0,
+            illegal_opcodes_allowed: true,
+            cycle_limit: None,
         }
     }
 
     /// Create a new CPU6502 with memory `mem`
-    pub fn new_with_mem(mem: Mem) -> Self {
+    pub fn new_with_mem(mem: Mem<CPU_MEMSIZE>) -> Self {
         let mut cpu = Self::default();
         cpu.flash_mem(mem);
         cpu
@@ -587,7 +587,7 @@ impl CPU6502 {
     /// When `illegal_opcode_mode == true` CPU will perform a NOP on encountering an illegal opcode
     /// (including HLT unless it's been separately enabled).
     pub fn set_illegal_opcode_mode(&mut self, mode: bool) {
-        self.illegal_opcode_mode = mode;
+        self.illegal_opcodes_allowed = mode;
     }
 
     /// Set the `cycle_limit` field of the CPU.
@@ -595,12 +595,12 @@ impl CPU6502 {
     /// CPU will halt before decoding next instruction if `cycle_count >= cycle_limit`.
     /// 
     /// Set `cycle_limit` to 0 to disable this behaviour.
-    pub fn set_cycle_limit(&mut self, limit: usize) {
+    pub fn set_cycle_limit(&mut self, limit: Option<usize>) {
         self.cycle_limit = limit;
     }
 
     /// Set the contents of the CPU memory to `mem`
-    pub fn flash_mem(&mut self, mem: Mem) {
+    pub fn flash_mem(&mut self, mem: Mem<CPU_MEMSIZE>) {
         self.cpu_mem = mem;
     }
 
@@ -613,5 +613,13 @@ impl CPU6502 {
         self.ry = 0;
         self.ps = BitField::new(0x00);
         self.cycles = 0;
+    }
+
+    pub fn mem(&self) -> &Mem<CPU_MEMSIZE> {
+        &self.cpu_mem
+    }
+
+    pub fn mem_mut(&mut self) -> &mut Mem<CPU_MEMSIZE> {
+        &mut self.cpu_mem
     }
 }

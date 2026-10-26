@@ -13,22 +13,33 @@ use crossterm::{
     }
 };
 
-use em_6502::{cpu::CPU6502, mem::Mem};
+use em_6502::{cpu::CPU6502, mem::{Mem, MemPrintFmt}};
 
 fn main() {
     if let Some(mode) = std::env::args().nth(1) {
         match mode.as_str() {
             "-d" | "--dbg" => {
-                let mut cpu = CPU6502::new_with_mem_from_file("in_sample_2.txt".to_string()).unwrap();
+                let in_file = String::from("in_sample_primes.txt");
+                let out_file = format!("out_{}", in_file.split('.').take(1).collect::<String>().split('_').skip(1).collect::<Vec<&str>>().join("_"));
+
+                let mut cpu = CPU6502::new_with_mem_from_file(in_file).unwrap();
                 cpu.set_allow_hlt(true);
                 cpu.set_illegal_opcode_mode(true);
-                cpu.set_cycle_limit(0);
+                cpu.set_cycle_limit(None);
 
                 cpu.power_on_and_run(true);
 
-                if false {
+                if let print_cpu_postmortem = true && print_cpu_postmortem {
                     println!("vvv CPU and Memory Postmortem vvv");
                     println!("{:?}", cpu);
+                }
+
+                if let save_mem_dump_dec = false && save_mem_dump_dec {
+                    _ = std::fs::write(format!("{}_mem_dec.txt", out_file), cpu.mem().mem_fmt(MemPrintFmt::Dec));
+                }
+
+                if let save_mem_dump_hex = false && save_mem_dump_hex {
+                    _ = std::fs::write(format!("{}_mem_hex.txt", out_file), cpu.mem().mem_fmt(MemPrintFmt::Hex));
                 }
             },
             "-i" | "--int" => {
